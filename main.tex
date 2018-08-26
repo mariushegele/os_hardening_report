@@ -61,17 +61,12 @@
 	\cleardoublepage
     \input{content/acronyms}
 
-	% List of Figures
+	% List of Figures, Tables, Listings
 	\cleardoublepage
 	\listoffigures
-
-	%List of Tables
-	\cleardoublepage
 	\listoftables
-
-	% List of Listings
-	\cleardoublepage
 	\lstlistoflistings
+	
 	\cleardoublepage
 
 	\pagenumbering{arabic}
@@ -94,7 +89,8 @@
 	% Bibilography
 	\cleardoublepage
 	\printbibliography
-
+	
+\iffalse
 	% Glossar
 	\cleardoublepage
 	\printglossary[style=altlist,title=\glossaryPhrase]
@@ -104,5 +100,6 @@
 	\clearpage
 	\appendix
 	\input{content/appendix}
-	
+\fi
+
 \end{document}

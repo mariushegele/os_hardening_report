@@ -1,47 +1,12 @@
 %!TEX root = ../../main.tex
 
-\chapter{Das dritte Kapitel}
-Dies ist der Text des ersten Kapitels.Nur erwähnte Literaturverweise werden auch im Literaturverzeichnis gedruckt: \cite[S.12 ff]{baumgartner:2002}, \cite[S.1-3]{dreyfus:1980}
-
-Meine erste Fußnote\footnote{Ich bin eine Fußnote} darf auch nicht fehlen. Fußnoten sind dazu da, dass man Begriffe näher erklärt, die aber dem vertrauten Leser wahrscheinlich eh bekannt sind. 
-
-\begin{figure}[h]
-\centering
-\includegraphics[height=.8\textwidth]{logo.png}
-\caption{Das Logo der Musterfirma\footnotemark}
-\end{figure}
+\chapter{Problem of a complex and non-incremental multi-tool build work flow}
 
 
+The build at hand consists roughly of an analysis and synthesis of the design in \texttt{Xilinx Vivado} and a compilation and execution in \texttt{Cadence Incisive Enterprise Simulator} (IES). This leads to an increased complication of the steps required to run a simulation. Several stages have to be initiated manually. The process is mainly ignorant to what's actually unnecessary to build - it does not work \textit{incremental}. This doesn't only slow down the process and impede automation, but also requires for educating newcomers to the project about how to get a simulation running. The goal of this section is to give a small insight into the details of this work flow, but also to explain why choosing two tools to simulate this design is beneficial.
 
-%\begin{wrapfigure}{r}{.4\textwidth}
-%\centering
-%\includegraphics[height=.35\textwidth]{logo.png}
-%\vspace{-15pt}
-%\caption{Das Logo der Musterfirma\footnotemark}
-%\end{wrapfigure}
-%Quelle muss in Fußnote stehen (da sonst aufgrund eines Fehlers nicht kompiliert
-% wird)
-\footnotetext{aus \cite{mustermann:2012}}
-Looking for the one superhero comic you just have to read. Following the antics and adventures of May Mayday Parker, this Spider-book has everything you could want in a comic--action, laughs, mystery and someone in a Spidey suit. Collects Alias \#1-28, What If. Jessica Jones had Joined the Avengers. In her inaugural arc, Jessicas life immediately becomes expendable when she uncovers the potentially explosive secret of one heros true identity. In her inaugural arc, Jessicas life immediately becomes expendable when she uncovers the potentially explosive secret of one heros true identity.
+The design of this architecture is configured using the\texttt{ Xilinx Vivado Design Suite} which makes sense because \texttt{Vivado} is offering already pre-compiled libraries (\textit{\acs{IP} blocks}) for \texttt{Xilinx} components - especially the integrated \acs{FPGA} \texttt{Xilinx Zynq}. With \texttt{Vivado} the custom libraries needed for other components and the custom constraints for simulation generation can be included in the project. As well-suited as the \acs{GUI} is for designers willing to implement changes required for proper functioning as time-consuming it is to have to start up a \acs{GUI} and initiate the \acs{HDL} synthesis manually. Additionally \texttt{Vivado} works project-based which entails having to construct the project's fundamental files on first build and having to re-open the project for every updating build. \texttt{Vivado} works with so called \textit{block designs} which is a representation of the \acs{DUT} including all necessary \acs{IP} blocks and the corresponding connections on register-transfer level. It is \texttt{Vivado}'s internal representation of the architecture and can be translated into \acs{HDL}. In an open project for every build the block design has to be reopened which equals a parsing of all included components to enable reconfiguration or a synthesis into a compilable \acs{HDL}. In this work flow several steps necessary for simulation were handled by a Tcl script. Tcl is the scripting language \texttt{Vivado} is based on and which can be used to control it via command line. Mentioned script mainly was responsible for configuration of simulation settings (for example the target \acs{HDL} language), generating the \acs{HDL} for all simulation drivers and the \acs{DUT}, compilating all libraries necessary for a third-party simulation in \texttt{\acs{IES}} and exporting the scripts required to start the compilation and simulation in \texttt{\acs{IES}}.
 
-Manchmal braucht man auch Formeln. LaTeX hat einen sehr guten Formeleditor, der eigentlich selbsterklärend ist. Die Formeln weden automatisch nummeriert, aber man kann immer im Text mit einem Label wie Formel \ref{xyz} Bezug nehmen.
+Simulating in \texttt{\acs{IES}} instead of \texttt{Vivado} Simulator was desirable mainly because \texttt{\acs{IES}} offers support for the \texttt{SystemVerilog} language. \texttt{SystemVerilog} is an \acs{HDL}/\acs{HVL} (hardware verification language) hybrid language which means it supports both describing a hardware as well as defining test cases for verification which makes it powerful as a language for verification engineers \cite[see][pp. 3f]{Cad11}. In this project \texttt{SystemVerilog} is used to configure the \acs{UVM} test bench, to declare simulation configurations and to define test cases. Based on these files combined with the output generated by the \texttt{Vivado} flow \texttt{\acs{IES}}'s \texttt{irun} utility can be started which compiles the final simulation model and creates an executable snapshot of the whole testbench.
 
-\begin{equation}
-t-t_{0}=\sqrt{\frac{l}{g}}\int_{0}^{\varphi}{\frac{d\psi}{\sqrt{1-k^{2}\sin^{2} {\psi}}}} = \sqrt{\frac{l}{g}} F(k,\varphi)
-\label{xyz}
-\end{equation}
-
-Manchmal braucht man Aufzählungen, die man in einzelnenen Punkten aufführt.
-\begin{itemize}
-\item Dies ist der erste Punkt, der aufgeführt wird.
-\item Dies ist der zweite Punkt, der aufgeführt wird. Manchmal will man auch etwas \textbf{fett} oder \textit{kursiv} oder \textbf{\textit{beides in Kombination}}  drucken.
-\item Dies ist der dritte Punkt, der aufgeführt wird.
-\end{itemize}
-
-Once upon a time, Jessica Jones was a costumed super-hero, just not a very good one. First, a story where Wolverine and Hulk come together, and then Captain America and Cable meet up. In a city of Marvels, Jessica Jones never found her niche. The classic adventures of Spider-Man from the early days up until the 90s. Looking for the one superhero comic you just have to read. In her inaugural arc, Jessicas life immediately becomes expendable when she uncovers the potentially explosive secret of one heros true identity.
-
-Erste Erwähnung eines Akronyms wird als Fußnote angezeigt. Jede weitere wird
-nur verlinkt: \acf{AGPL}. \cite{fsf:2007}
-
-Verweise auf das Glossar: \gls{Glossareintrag}, \glspl{Glossareintrag}
-
+It already appears that simplification and automation of this work flow is sensible and helpful. Making sure that nothing is being build that doesn't need to be build - getting it to work \textit{incrementally} - would further accelerate the procedure. The question arises with which software best to achieve this business. There are many options that need to be compared paying attention to the given variables of this project.

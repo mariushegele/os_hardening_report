@@ -1,0 +1,43 @@
+%!TEX root = ../../main.tex
+
+\chapter{Examination: \texttt{make} and its alternatives}
+
+To be able to make an informed decision about which tool to choose to deal with the problem at hand one needs to examine the preconditions given for this project. The fact that every project member uses the same operating system - a virtual machine running a Linux distribution - simplifies the choice of software. The environment in which the build is taking place is a standard Bash Unix shell. This puts little limitations on the possibilities of implementation, but is definitely something to be considered.
+
+Simple builds can easily be covered by standard scripts like bash scripts or using other general-purpose scripting languages. These usually fail to supply the functionalities of real build tools: the ability to declare what product depends on the state of which file and what steps need to be completed in order to achieve it. Build-automation utilities can be used to declare order, tasks and goals necessary for a successful build. Popular options are \textit{GNU Make}, \textit{Apache Ant}, and \textit{SCons}.
+
+\begin{table}[h]
+\centering
+\begingroup
+\setlength{\tabcolsep}{8pt} % Default value: 6pt
+\renewcommand{\arraystretch}{2.5} % Default value: 1
+\resizebox{.8\textwidth}{!}{%
+\begin{tabular}{c|cccccl}
+\rowcolor[HTML]{DFDFDF} 
+build tool & format & dependency tracking & ubiquity & scalability & portability & domain \\ \hline
+GNU Make & tabbed text & no & yes & yes & no & general purpose \\
+Apache Ant & XML & no & no & yes & yes & mostly Java projects \\
+SCons & Python & yes & no & no & yes & general purpose
+\end{tabular}%
+}
+\endgroup
+\caption{Comparison of build automation tools based on  \cite{Hae08}, \cite{Spin08}, \cite{Serr04} and \cite{Make16}}
+\label{build_tools}
+\end{table}
+
+\noindent
+Taking into account the gathered data in table \ref{build_tools} the decision fell upon \texttt{GNU Make}. Dependency tracking (automatic generation of dependencies) would probably not be applicable to the \texttt{Vivado} internal \acs{HDL} synthesis anyway and would therefore not be of any benefit. The widespread use of \texttt{make} helps with code comprehensibility and good documentation. Scalability is of critical importance for this project as compilations can take up to several hours. Non-portability is not an issue in this case out of aforementioned reasons that the environment is shared among the whole team and the multi-tool work flow can only be implemented using a general purpose tool.
+
+\texttt{GNU Make} is based on the original \texttt{make} utility and is the standard derivative for Linux and OS X. It includes many additional features, but works mostly the same. Everything depends upon a \texttt{Makefile} which contains the relationships of the specific build. Its main purpose is to determine file dependencies - that is which files depend on the state of others. Timestamps are the factor upon which is decided if a file has to be rebuild or not. The syntax everything is based on are so-called \textit{rules}:
+
+\begin{lstlisting}[language={[gnu] make}, title = \texttt{make} rule]
+targets ... : prerequisites ...
+	recipe
+	...
+\end{lstlisting}
+\noindent
+All target files depend on the \textit{timestamps }of their prerequisites. If there exists one prerequisite that is more current than the target files than the target files have to be rebuild using defined recipe. This functionality gives a programmer the tool necessary to implement an incremental build that recompiles only what actually has to be updated. \texttt{Make} gets instantiated by the according \texttt{make} command in combination with a specific build \textit{goal}. Then the \texttt{Makefile} gets parsed following the path of the defined goal's prerequisites up until the root of the dependency tree. If none of the prerequisites of the goal and none of the prerequisites' prerequisites (and so on) are more current than its targets then nothing has to compiled, but in worst case the prerequisite at the root of the tree has a fresh time stamp and every target in the chain until the goal has to be updated \cite[see][pp. 3ff]{Make16}.
+
+What makes GNU Make so suitable for this case is the fact that recipes are \texttt{bash} commands with every new line in a recipe supplying a fresh shell. This enables use of any standard command line interface (for example \texttt{Vivado}'s) inside a \texttt{make} compile.
+
+Of course \texttt{make} offers much more options like functions and variables, but diving into these is not the objective. Having investigated the suitability of a possible technological solution in \texttt{GNU Make} it is time to discuss the actual endeavour of automating and possibly accelerating the present work flow.

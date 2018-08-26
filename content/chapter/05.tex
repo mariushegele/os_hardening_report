@@ -1,0 +1,236 @@
+%!TEX root = ../../main.tex
+
+\chapter{Solution: enhancement of a verification work flow}
+
+\section{Analysis of dependencies in build process}
+
+A successful implementation of the automated build with a \texttt{Makefile} in this case depends wholly on a deep and clear understanding of each file's significance for the build as a whole, its relationship with other files and the commands (recipes) necessary to build a specific target. That's why it's fundamental to take the time to get to know the exact steps necessary to complete a simulation, to define what can be observed about cause and product and to transform it all into a manageable and clear overview.
+
+A first step should be to try getting to work a simulation using the traditional steps noting the requisite commands and paying attention to what might be improvable. On a second build run one can start focusing on dependencies and recipes to be used later in the \texttt{Makefile}. Use of mind mapping software can prove more helpful than using pen and paper as it allows for later reconfiguration and generally provides an outline that is easier to work with.
+
+Regarding the parts of the build required to be started using the \texttt{Vivado} \acs{GUI} there needs to be found an equivalent alternative that can be called via command line. \texttt{Vivado} can be used in the command line via:
+
+\begin{lstlisting}[language=bash]
+$ vivado -mode tcl
+\end{lstlisting}
+The Tcl console that's launched by the command equals a fully functioning substitute to using the \acs{GUI} \cite[p. 154]{Xi18}. The equivalent commands can be found out by performing a normal operation via mouse and checking the \texttt{Tcl }console in \texttt{Vivado}.
+
+Once there is an adequate basic understanding of most dependencies and a console counterpart for every \texttt{Vivado} step has been found it makes sense to try to build a simulation by using only the command line while still paying attention to further details that can be found out about the results of every command. Only if that proceeds successfully one should start thinking about how to structure the \texttt{Makefile}. 
+
+\section{Inter-process communication and error handling}
+
+As already mentioned - in a \texttt{Makefile} every recipe and even every new line inside a recipe spawns a fresh Unix shell. In this cases that feature poses a particular problem. \texttt{Vivado} works project-based which means that in order to use its \acs{HDL} synthesis function it needs to be guaranteed that a \texttt{Vivado} process with the correct project opened is kept running at the required times. So there needs to be found a way to be able to isolate a background \texttt{Vivado} process with which bidirectional communication from inside the \texttt{make} process is possible. One needs to be able to execute \texttt{Vivado} commands as well as to capture the related output including possible errors. 
+
+This purpose is called interprocess communication (IPC) - setting up an environment in which independent processes are able to communicate with each other. Fortunately \texttt{bash} provides several options for implementation. On of these are so-called \textit{Named Pipes} or \textit{FIFOs} (First In First Out). A named pipe exists and behaves similar to a regular file in the system. It can be created, written to, read from and deleted. The only difference is that it handles input and output line by line in the way of a queue. Every new input is prepended to all previously existing lines. Every line that's read is automatically being deleted from the pipe. So a \acs{FIFO} always follows the principle of "first come - first serve". The line that has been written first gets read first. Named pipes can be created using
+\begin{lstlisting}[language=bash]
+$ mkfifo my_pipe
+\end{lstlisting}
+\noindent
+The \acs{FIFO} \texttt{my\char`_pipe} now exists in the working directory the same way a normal file would. To make sure it doesn't stay there forever using up space named pipes are usually created inside the \texttt{/tmp} folder where they are automatically deleted after time by the operating system. Having created a \acs{FIFO} one is now able to direct certain data into the file the same way one would write to a normal file using bash. 
+\begin{lstlisting}[language=bash]
+$ echo "Hello Bob" > my_pipe
+\end{lstlisting}
+\noindent 
+The output of \texttt{echo} is being \textit{piped} into the \acs{FIFO}. What now comes into the play is the special blocking mechanism of named pipes. The writing process blocks until the output is read on the other end of the pipe. Until then the line \texttt{Hello Bob} resides inside the pipe. Once the \acs{FIFO} has been opened, for example via
+\begin{lstlisting}[language=bash]
+$ cat my_pipe
+Hello Bob
+\end{lstlisting}
+\noindent
+the writing process finishes and the pipe once again is free for reading or writing. If an empty FIFO is read similarly the reading process blocks until new input is written to the FIFO. By that mechanism it is guaranteed that requested communication (write/read) will always wait for its counterpart (listen/response). 
+
+This functionality appears fitting to set up something similar to a server. Using two pipes one is able to open up communication channels for a background process. Let's regard this example:
+\begin{lstlisting}[language=bash]
+$ mkfifo /tmp/vivado_in
+$ mkfifo /tmp/vivado_out
+
+$ vivado -mode tcl <> /tmp/vivado_in > /tmp/vivado_out & echo $! > vivado.PID
+\end{lstlisting}
+\noindent
+This creates two pipes for input to and output from the executed \texttt{Vivado} process. The in-pipe is connected in \textit{read-right} (\texttt{<>}) mode and the out-pipe in \textit{read}-mode. The process is additionally put into the background via (\texttt{\char`&}). Doing so frees up the currently used shell for other purposes, but having established channels for communication by two \acs{FIFO}s it is still addressable using already mentioned principles. In this case a \textit{read-write} access for the in-pipe is necessary, because without constant access the \texttt{Vivado} process would be isolated and would automatically shut itself down. Using read-write access the standard blocking mechanism gets cancelled out and the \texttt{Vivado} process stays alive until a voluntary shut down is executed. This can be achieved in two ways - either by ordinarily piping the \texttt{exit} command or by killing it forcefully using \texttt{Vivado}'s Process ID (PID) that been saved in the \texttt{vivado.PID} file. This \texttt{Vivado} "server" is now available and ready for request and response:
+
+\begin{lstlisting}[language=bash]
+# shell 1: request
+$ echo "open_project my_project" > /tmp/vivado_in
+
+# shell 2: response
+$ while read LINE;
+$ 	do echo "$LINE";
+$ done < /tmp/vivado_out	
+\end{lstlisting}
+\noindent
+This small script tells \texttt{Vivado} to open the project \texttt{my\char`_project} by piping the according command into the right channel. The \texttt{Vivado} process reads the output from the in-pipe, executes and forwards its own output into the out-pipe. The set up \texttt{while}-loop continues reading from the out-pipe until there is nothing left to read which should be as soon as the project has been successfully opened or there was an error along the way. So far this implementation is not intelligent enough to detect and alarm errors or to know at which point it can assume to continue requesting with new commands.
+
+An error-conscious procedure can be developed using the keywords \texttt{Vivado} provides for every response. Actual errors in the process are rendered like this
+\begin{lstlisting}
+ERROR: Failed to open project. No such file or directory.
+\end{lstlisting}
+\noindent
+such that there can always be expected to be found an \texttt{"ERROR"} string at the start of a line if an error occurs. Additionally a possible strategy that can be used to make sure everything is working in an expected manner is to tell \texttt{Vivado} to output a certain message to the out-pipe as soon as it has finished the previously requested task. This way write and read operations can be enhanced like this:
+
+\begin{lstlisting}[language=bash]
+# shell 1: request
+$ echo "open_project my_project" > /tmp/vivado_in;
+$ echo "puts command_end" > /tmp/vivado_in
+
+# shell 2: response
+$ while read LINE;
+$ 	do case "$LINE" in
+$		"ERROR"*)
+$			echo "$LINE"; kill $(cat vivado.PID);;
+$		*"command_end"*) 
+$			break 1;;
+$ 		*) echo "$LINE";;
+$	esac;
+$ done < /tmp/vivado_out
+\end{lstlisting}
+\noindent
+This read loop recognizes errors by spotting the keyword in the beginning of the line and appropriately kills the \texttt{Vivado} process using the stored process ID. Equally if everything computes finely and \texttt{Vivado} prints a \texttt{command\char`_end} the read process finishes with no error signal indicating that the build can continue with the next request. This functionality can easily be transported into a \texttt{Makefile}. Packing it into \texttt{make }functions (only available in \texttt{GNU Make}) that expects the command to be piped as an argument makes it callable from inside every recipe.
+
+\begin{lstlisting}[language={[gnu] make}, caption={\texttt{Makefile} variable and function declaration},captionpos=b]
+check-vivado-rc := \
+	while read LINE; \
+		do case "$$LINE" in \
+			"ERROR"*) \
+				echo "$$LINE"; $(kill-vivado); fi ;; \
+			*"command_end"*) break 1;; \
+			*) echo "$$LINE" ;; \
+		esac ; \
+	done < /tmp/vivado_out
+	
+define pipe-command
+echo $(1); \
+$(check-vivado-rc) & pid=$$!; \
+echo $(1) > /tmp/vivado_in; \
+echo "puts command_end" > /tmp/vivado_in; wait $$pid
+endef
+\end{lstlisting}
+
+This piece of code assignes already mentioned read loop to a variable. Additionally a function \texttt{pipe-command} is declared. This function can be called in any recipe if there is a wish to execute something in a continuously open \texttt{Vivado} process. It activates the read loop and pipes the first passed argument (\texttt{\$(1)}) into the \texttt{Vivado} process. 
+
+Even though this provides a well working result the fact that progress is bound to the \texttt{Vivado} process prevents us from making use of \texttt{make}'s parallel functionality. For regular builds it is able to determine which parts of the build process can be executed independently and does so to safe time \cite[see][p. 47]{Make16}. Another thing to notice is that when programming bash recipes in a \texttt{Makefile} regular \$-signs need to be doubled because every \$-sign gets escaped by make when parsing the document. It is the key-symbol for every variable or function call.
+
+In summary two named pipes were used to bind a background \texttt{Vivado} process to a function that's callable from every recipe inside the \texttt{Makefile}, e.g. via
+\begin{lstlisting}[language={[gnu] make}]
+$(call pipe-command, "open_project my_project.xpr")
+\end{lstlisting}
+\noindent
+The passed argument gets executed, output and errors get reported and handled and it's possible to continue on with whatever \texttt{Vivado} task is required next in the build flow. To determine which recipe should be executed afterwards \texttt{make}'s main principle of timestamps of files proves valuable and sufficient, but for some use cases other concepts are needed.
+
+\section{Representing compound build milestones with empty targets}
+
+The standard application of make is the compilation of \texttt{C}-programs. Probably the most written \texttt{make} rule would therefore probably look somewhat like this:
+
+\begin{lstlisting}[language={[gnu] make}, title={extracted from \cite[p. 4]{Make16}}]
+main.o : main.c defs.h
+	cc -c main.c
+\end{lstlisting}
+\noindent
+The object file \texttt{main.o} is compiled only if the time stamp of \texttt{main.c} or \texttt{defs.h} is more current than its own. But what if the target one is trying to build - the goal one is trying to achieve - is not an actual file, but rather something complex, for example an open project. Representing complex milestones like these can be achieved by using \textit{empty targets}. These are files without content that are only being used by their time stamp. If a certain milestone is achieved the time stamp can be refreshed using \texttt{touch} \cite[see][p. 31]{Make16}. If already discussed case of opening a project is regarded there can't be expected an update of certain files every time a project has been opened. And what if a project is no longer open? The strategy of empty targets poses as a worthy substitute for this case.
+
+\begin{lstlisting}[language={[gnu] make}, caption={Make recipe for opening a project: \texttt{\$<} = first prerequisite, \texttt{\$@} = first target}, captionpos=b, label={lst:proj}]
+.project_open: my_project.xpr vivado.PID
+	$(call pipe-command, "open_project $<") && \
+	touch $@
+\end{lstlisting}
+\noindent
+If now \texttt{.project\_open} is a prerequisite of another target this rule checks for several things before piping the right command into \texttt{Vivado}. If the according \texttt{.xpr} file is not existent of course the recipe can't be executed, so it checks for a rule on how to build this file or throws an error. If \texttt{vivado.PID} doesn't exist also the two named pipes haven't been created or connected and the command couldn't be forwarded, so this would have to be set up previously. Given the \texttt{pipe-command} function successfully returns (defined by \texttt{\&\&}) the empty target \texttt{.project\_open} gets created or updated. 
+
+This is supposed to happen whenever there's another target depending on an open project which applies for many cases. So \texttt{.project\_open} should be a prerequisite of many targets. But should a re-opened project lead to a rebuild of all targets that depend on it? Most certainly not.
+
+\section{Order-only prerequisites}
+
+Order-only prerequisites are useful for dependencies only in regards to order, but not in regards to content. A target that has an order-only prerequisite really depends on the existence of the prerequisite. But only because this prerequisite had to be rebuild freshly the target doesn't have to. An update of an order-only prerequisite doesn't force an update of its target \cite[see][p. 22]{Make16}.
+
+As already mentioned this applies perfectly to the case of an open or closed project. It always needs to be open for an HDL synthesis to function:
+
+\begin{lstlisting}[language={[gnu] make}, caption={\texttt{Makefile} that generates Verilog output of user logic block design}, captionpos=b]
+.user_logic_target: $(user_logic_bd) | .project_open
+	@$(call pipe-cmd,"set_property target_language Verilog [current_project]") \
+	&& $(call pipe-cmd,"generate_target simulation [get_files $<]") \
+	&& touch $@
+\end{lstlisting}
+\noindent
+Order-only prerequisites are marked by being positioned behind the \texttt{|}. In order to build the empty target \texttt{.user\_logic\_target} the project has to be open. If it is not then recipe of listing \ref{lst:proj} needs to be executed, but just because that had to happen the Verilog output doesn't have to be regenerated.
+
+
+
+\section{Intermediate files and phony targets}
+
+Of course the project can no longer be open whenever the background \texttt{Vivado} process has terminated. Declaring the according empty target file as an \texttt{.INTERMEDIATE} file makes sure this file is deleted after every run of \texttt{make}.
+\begin{lstlisting}[language={[gnu] make}]
+.INTERMEDIATE: .project_open
+\end{lstlisting}
+\noindent
+It gets cleaned up afterwards if it was created inside the \texttt{make} run. These kinds of files also aren't treated like regular prerequisites. They are regarded as not critical to any target that depends on them, so if \texttt{make} can't identify a reason to build an \textit{intermediate} file, it doesn't \cite[see][p. 118]{Make16}.
+
+\textit{Intermediate} files aren't guaranteed to be cleaned up. On an uncontrolled interruption to the \texttt{make} process they aren't. Whenever it shuts down involuntarily \textit{intermediate} files don't get deleted and have to be recycled manually. This is usually achieved by using \textit{phony targets} that include all intermediate targets or other temporary targets that could inhibit a successful build. So in the project present following rule would make sense:
+\begin{lstlisting}[language={[gnu] make}]
+.PHONY: clean
+clean:
+	rm -f .project_open
+	rm -f .vivado.PID
+\end{lstlisting}
+\noindent
+Both of these files can't exist outside of a \texttt{make} run. The project can't be open especially if the \texttt{Vivado} process isn't running. \texttt{clean} is a target that never exists as a file, but that is still callable as a goal. If ever really a file exists that is called the same way the recipe gets carried out anyway, beause \texttt{clean} is declared as \textit{phony} \cite[see][p. 29]{Make16}. This way a target was constructed to be called whenever there's need to make sure that the state of files is in a neutral state ready for build.
+
+All in all the \texttt{make} features so far described suffice to guarantee a working \texttt{Vivado} setup. \textit{Interprocess communication} enables setting up a communicative background server, \textit{empty targets and order-only prerequisites} help to ensure an open project and with \textit{intermediate files and phony targets} one is able to take care of a "clean workbench". 
+
+\section{Dependency mapping - pattern rules versus meta-programming}
+
+One of the hardest of challenges in automating any build is finding a way to efficiently map all file dependencies, especially if the \texttt{Makefile} is desired to be applicable to similar projects and changes in the work flow. Modular programming is the endeavour of trying to make most of a program dependent on configurations or present files.
+
+A lot can be achieved simply by referencing changeable variables when defining \texttt{make} rules. What's evenly helpful is the \texttt{wildcard} function. This function searches in a certain directory for all files that match a specified pattern \cite[p. 89]{Make16}. This can be used, for example to gather all constraint files in a corresponding variable:
+
+\begin{lstlisting}[language={[gnu] make}]
+constraints := $(wildcard *.xdc)
+\end{lstlisting}
+\noindent
+By using the \texttt{constraints} variable in a prerequisite list instead of declaring every file for itself one not only spares time in development, but also provides flexibility for future additions.
+
+\texttt{Make} provides another functionality for generalization of rules that also works with patterns: pattern rules. Based on a certain pattern that is provided using stem representation (\texttt{\%}) and additional numbers or letters, targets can be mapped to their dependencies. A common example looks like this:
+\begin{lstlisting}[language={[gnu] make}]
+%.o: %.c 
+	cc -c  $< -o $@
+\end{lstlisting}
+\noindent
+Here again an object is compiled from a \texttt{C}-source code file. This rule applies to any pair of files that match this pattern. So \texttt{foo.o} gets compiled using \texttt{foo.c} in the same way as \texttt{bar.o} does using \texttt{bar.c}. The automatic variables \texttt{\$<} and \texttt{\$@} always represent the first prerequisite and the first target which in this case are always the corresponding related files \cite[see][p. 119 and p.123]{Make16}. 
+
+This provides a very elegant solution to the problem of dependency mapping, but it quickly gets complicated as soon as there are deeply nested directories involved. Unfortunately when using \texttt{Vivado} one can often come across structures similar to this:
+\begin{lstlisting}
+my_project/my_project.srcs/sim_1/bd/aur_axi_drv/hdl/aur_axi_drv.v
+\end{lstlisting}
+\noindent
+Pattern rules can still be a solution as directory names get disregarded completely if no slashes are provided within the pattern \cite[see][p. 123]{Make16}. This can unfortunately lead to problems if there are files in different directories which have the same format, but not the same context and therefore need to be treated differently. A \texttt{make} functionality that could help in such cases is \texttt{vpath}. It allows the declaration of a directory to be searched if a file can't be found in the current directory and it matches a certain pattern. For example:
+\begin{lstlisting}[language={[gnu] make}]
+vpath %.v my_project/verilog
+\end{lstlisting}
+\noindent
+This would tell \texttt{make} to additionally look for all \texttt{Verilog} files that can't be found in the current directory in the specified directory \cite[see][p. 26]{Make16}. This might be a solution for simple directory structures, but in cases like the above mentioned where patterns are included in the directory this won't suffice as a solution.
+
+Far less elegant than pattern rules, but equally functional, modular and flexible is generating rules in a \textit{meta-programming} kind of manner. The crux is to generate \textit{rules} - something that needs to be parsed by \texttt{make} in order to be executed. The first computation is necessary for the generation of the rules based on certain arguments, the second is necessary for \texttt{make} to interpret these as actual rules. \texttt{make} offers a function for evaluating pieces of a \texttt{Makefile} an additional time: \texttt{eval}. Everything inside this function is expanded first using the given arguments and then parsed a second time as regular \texttt{Makefile} syntax. \cite[see][p. 93]{Make16}. It is hard to picture its functionality without an example. Let's say there are two pairs of fairly nested files:
+\begin{lstlisting}
+aur_axi_drv/aur_axi_drv.bd
+aur_axi_drv/hdl/aur_axi_drv.v
+axi_drv/axi_drv.bd
+axi_drv/hdl/axi_drv.v
+\end{lstlisting}
+\noindent
+A more efficient solution would be to provide all paths necessary in the according \texttt{vpath} variables and to use pattern rules\textit{(too late)}, but another way of mapping these files' dependencies is using the \texttt{eval} function.
+\begin{lstlisting}[language={[gnu] make}]
+driver = aur_axi_drv axi_drv
+
+define generate-rules
+$(1)/hdl/$(1).v: $(1)/$(1).bd
+	$$(call pipe-cmd,"generate_target simulation [get_files $$<]")
+endef
+
+$(foreach drv,$(driver),$(eval $(call generate-recipes,$(drv))))
+\end{lstlisting}
+\noindent
+With each driver in the variable \texttt{driver} as an argument the \texttt{eval} function gets called once to expand the rule defined in the function \texttt{generate-rules}. On first expansion the argument's value is inserted for all parameters \texttt{\$(1)}. Because everything gets evaluated twice the parts of the recipe that should be interpreted on second expansion require double-use of the dollar-sign.
+
+\bigskip
+
+\noindent
+The stated strategies make up the more complicated part of automating the build using the \texttt{Makefile}. The rest comes down mostly to defining the correct rules for each file - finding the fitting prerequisites and determining the right recipes. Doing so should lead to an acceleration of build time as the \texttt{Makefile} is constructed to be aware of what's unnecessary of being rebuild.
