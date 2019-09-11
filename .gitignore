@@ -1,3 +1,10 @@
+doc/
+*.bib
+
+content/
+appendix/
+images/
+
 ## Core latex/pdflatex auxiliary files:
 *.aux
 *.lof
