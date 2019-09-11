@@ -1,11 +1,6 @@
 doc/
 *.bib
 
-content/
-appendix/
-images/
-settings/
-
 main.tex
 
 session.tks
