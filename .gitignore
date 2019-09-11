@@ -4,6 +4,11 @@ doc/
 content/
 appendix/
 images/
+settings/
+
+main.tex
+
+session.tks
 
 ## Core latex/pdflatex auxiliary files:
 *.aux
