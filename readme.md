@@ -1,4 +1,4 @@
-Fork of https://github.com/mariushegele/dhbw-heidenheim-latex-template 
+Fork of https://github.com/schnes4/dhbw-heidenheim-latex-template 
 
 # DHBW Heidenheim LaTeX Template
 
