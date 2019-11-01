@@ -1,3 +1,5 @@
+Fork of https://github.com/mariushegele/dhbw-heidenheim-latex-template 
+
 # DHBW Heidenheim LaTeX Template
 
 Dieses LaTeX Template ist für alle Arbeiten der Fakultät Informatik der DHBW Heidenheim geeignet.
