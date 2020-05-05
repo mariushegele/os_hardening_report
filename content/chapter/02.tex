@@ -1,0 +1,127 @@
+
+\chapter{Taktiken zur Härtung von Betriebssystemen}
+
+In diesem Teil soll auf mögliche Taktiken zur Härtung eines Linux-Betriebssystems gegen Angriffe unterschiedlicher Art eingegangen werden. Diese Auflistung ist nicht vollständig. Der Fokus liegt auf den zwei groben Taktiken laufende Prozess mit geringst möglichen Privilegien zu versehen (\gls{Least Privilege}) oder in einer sog.\ \gls{Sandbox} abzuschirmen.
+
+\section{Least Privilege Betrieb}
+
+Saltzer und Schröder definieren 1975 das `Least-Privilege'-Prinzip als Betriebskonzept in dem jedes Programm und jeder Nutzer unter den geringst möglichen Privilegien operiert, die notwendig sind, um die jeweilige Aufgabe zu erfüllen \cite{saltzer_1975}. Dies minimiert die Wahrscheinlichkeit eines Missbrauchs von Privilegien sowie die Zahl der Anwendungen die bei einem Missbrauch geprüft werden müssen. 
+Dem privilegierten \texttt{root}-Nutzer stehen unter Linux alle Informationen sowie Kontrollmechanismen zur Verfügung. Kaum ein einzelner Prozess benötigt jedoch all diese. Ein Angreifer der es schafft seine Privilegien über Schwachstellen bis auf dieses Level zu eskalieren hat das System unter voller Kontrolle. Dies wird einfacher je mehr Prozesse und Nutzers Zugriffe haben, die sie nicht benötigen.
+
+Das einfachste Beispiel ist das eines öffentlich-zugänglichen Services, wie eines Web Servers, der mit hohen Privilegien läuft. Welche dieser Privilegien benötigt er wirklich? Auf welche Arten lässt sich dieser einschränken?
+Ein sicheres Betriebskonzept beinhaltet eine Separierung von Privilegien mit der Anforderung zu einem "need-to-know" im Bezug auf 
+\begin{itemize}
+  \item die nutzbaren System Calls,
+  \item die Sicht auf laufende Prozesse
+  \item oder die Fähigkeit Speicher zu schreiben und auszuführen.
+\end{itemize}
+
+\subsection{System-Nutzer, Capabilities und Mandatory Access Control}
+
+Linux Dateisysteme unterstützen das traditionelle Unix-Format für Zugriffsberechtigung. Dies baut auf dem Prinzip `Discretionary Access Control' (DAC), bei dem die Zugriffsberechtigung zu einzelnen Dokumenten von der Identität des Nutzers abhängt. Dies unterscheidet sich insofern vom Least-Privilege-Prinzip, dass auch ein Nutzer höchsten Ranges nicht an jeder Aufgabe beteiligt ist und damit nicht jeden möglichen Zugriff benötigt.
+
+
+\subsubsection{Service Accounts}
+
+Eine simple aber notwendige Maßnahme um Privilegien auf einem solchen Dateisystem zu separieren ist, dass jede Anwendung im Namen eines korrespondierenden Nutzers läuft. Nur dieser Nutzer hat Zugriff auf die App-spezififischen Daten und vor allem keine Einsicht in die Informationen anderer Anwendungen oder des Systems. Dies ist der grundlegende Baustein des Android Sandbox Modells \cite{android-sandbox}. Jeder App wird eine eigenes Verzeichnis und eine eigene UID zugewiesen.
+
+Angenommen es existiert eine einfache Browser Anwendung, die über eine Sicherheitslücke Angreifern Arbitrary Code Execution unter den Privilegien des Prozesses ermöglicht. Ein Angreifer hätte potenziell Interesse, die Inhalte anderer Anwendungen, wie des Kalenders zu erspähen.
+
+\begin{lstlisting}[language=c]
+// /apps/browser/main.c
+
+hers = fopen("/apps/calendar/data.txt", "r");
+if(hers == NULL) {
+    printf("Failed to peek into the calendar\n");
+    return 1;
+}
+fgets(buf, 255, hers);  
+printf("Read: %s\n", buf);
+fclose(hers);
+\end{lstlisting}
+
+Statt den Browser und den Kalender und deren Daten unter derselben UID zu halten, sollte beide ihre eigenen ``Service-Accounts'' haben. Unter Linux sind bereits bestimmte UID-Bereiche für solche ``Service-Accounts'' reserviert. Wird ein Nutzer mit \texttt{adduser \-\-system} erstellt, so ist es nicht möglich sich als dieser Nutzer anzumelden (z.B. über SSH). Die Zugriffsberechtigung (\texttt{umask}) der Anwendungen sollten auf einzig auf Zugriff durch den Inhaber (Service-Account) beschränkt werden.
+
+\begin{lstlisting}[language=bash]
+$ ./browser/main
+Read from calendar: Today I have a doctors appointment at 4 pm to check up on my stomach aches.
+
+$ sudo adduser --system --home /apps/calendar calendar
+$ sudo chmod 700 /apps/calendar
+
+$ ll /apps/calendar
+drwxr-xr-x  2 calendar nogroup 4096 Apr 29 17:05 calendar/
+
+$ ./browser/main
+Failed to peek into the calendar
+
+$ sudo -u calendar ls -l calendar
+-rw-rw-r-- 1 calendar calendar  76 Apr 29 16:26 data.txt
+\end{lstlisting}
+
+Um sicherzustellen, dass alle Daten in den jeweiligen Applikations-Verzeichnissen unter derselben DAC-Policy (700) erstellt werden, sollten Default-Permissions über \texttt{umask} und Access Control Listen (ACL) gesetzt werden. 
+
+\begin{lstlisting}[language=bash]
+$ setfacl -d -m g::--- /apps # set group to none default
+$ setfacl -d -m o::--- /apps # set other to none default
+\end{lstlisting}
+
+Damit sich dies auch auf über \texttt{adduser \-\-system --home=/apps/<app>} automatisch erstellte Nutzer-Verzeichnisse bezieht, sollte der \texttt{UMASK} Parameter unter \texttt{/etc/login.defs} auf 700 konfiguriert werden. Damit Prozesse nicht eigenständig die Inhaber ihrer Dateien ändern können (\texttt{chmod}) sollte ihnen die beiden System Calls \texttt{chown} und \texttt{chmod} über Packet-Filter (\texttt{seccomp-bpf}) verboten werden.
+
+% TODO seccomp-bpf
+
+
+\subsubsection{Setuid und Capabilities}
+
+Beim Ausführen einer Datei erhält der resultierende Prozess im Normalfall die Nutzerrechte des Aufrufenden. Eine Ausnahme zu dieser Regel herrscht, wenn die ausgeführte Datei mit einem Setuid-Bit versehen ist. Dies bewirkt, dass der resultierende Prozess stattdessen die Zugriffsrechte des Dateiinhabers erhält \cite{chmod}. Ist der Dateinhaber dabei \texttt{root}, so resultieren ausnutzbare Schwachstellen in diesen Programmen einen Schwachpunkt dar, der Privilege Escalation ermöglicht. Dasselbe gilt analog für Setgid
+Bits und Nutzergruppen. Diese Eigenschaften wird des Weiteren benutzt, um erlangte erhöhte Privilegien auf einem System über Neustarts hinweg zu persistieren \cite{attack-setuid}. Aus den genannten Gründen, sollte die Zahl der existierenden Setuid Anwendungen auf ein Minimum reduziert werden. Dies kann erreicht werden, indem einer Anwendung bestimmte Rechte (Capabilities) zu privilegierten Operationen eingeräumt werden, die normalerweise nur \texttt{root} in der Lage ist
+auszuführen. 
+
+\begin{lstlisting}[language=c,label=lst:timetravel,caption={Zeitreise mittels \texttt{stime} und der Versuch die Privilegien auf \texttt{root} auszuweiten}]
+print_time(&now);
+dest = now - 60;
+
+// let's travel
+ret = stime(&dest);
+
+if(ret != 0)
+{
+    printf("Failed to travel in time.\n");
+    return -1;
+}
+
+now = time(NULL);
+printf("We are in the past!!1!\n");
+print_time(&now);
+
+/* mocking some vulnerability */
+setuid(0); // privilege escalation
+system("cat ~/safe/precious_data.txt && echo 'you have been pwned'");
+\end{lstlisting}
+
+Die Gefahr der Nutzung von Setuid Bits lässt sich an einem Zeitreise-Beispiel (Listing \ref{lst:timetravel}) demonstrieren. Hierzu wird der \texttt{stime} System Call verwendet, der die \texttt{CAP\_SYS\_TIME} Capability erfordert \cite{man-cap}. Nun bieten sich zwei Möglichkeiten diese der Anwendung bei der Ausführung zu erteilen: die \texttt{root}-Inhaberschaft verbunden mit einem Setuid Bit oder das einfache Erteilen der Capability.
+
+
+\begin{lstlisting}[language=bash,label={lst:timetravel}]
+$ sudo chown root:root time_travel_suid
+$ sudo chmod u+s time_travel_suid 
+# versus
+$ sudo setcap CAP_SYS_TIME=eip time_travel_cap
+
+$ ll time_travel*
+-rwxr-xr-x 1 root  root  17080 Apr 29 09:08 time_travel*
+-rw-rw-r-- 1 otter otter   727 Apr 29 09:09 time_travel.c
+-rwxrwxr-x 1 otter otter 17080 Apr 29 09:08 time_travel_cap*
+-rwsrwxr-x 1 root  root  17080 Apr 29 09:08 time_travel_suid*
+\end{lstlisting}
+
+Das \texttt{s} auf dem Setuid-Binary indiziert das gesetzte Setuid-Bit. Eine Ausführung des SUID-Binary führt zu Privilege Escalation nach `Ausnutzen' der gemockten Vulnerability und damit zum Verlust der Vertraulichkeit auf einer sonst unlesbaren Datei. Die Setuid Funktionalität kann per Block Device mithilfe von \texttt{mount -o nosuid} deaktiviert werden. Doch dies verbietet auch das Zuweisen von Capabilities. Dies kann also nicht für alle Dateisysteme eine Lösung sein. Stattdessen sollte
+die Existenz von Setuid-Binaries beobachtet und über Capabilities minimiert werden.
+
+\subsubsection{Mandatory Access Control}
+
+Capabilities sind ein Beispiel für die Umsetzung eines alternativen Ansatzes zur Zugriffsberechtigung -- `Mandatory Access Control' (MAC). Im Allgemeinen wird dabei ein Regelwerk definiert, das bestimmt, ob ein Nutzer oder ein Prozess eine Operation auf einer bestimmten Ressource ausführen darf. Dabei werden nur die explizit als erlaubt definierten Operationen auch durchgeführt. Es existieren Linux Security Module zur System-weiten Umsetzung von MAC. Die zwei bekanntesten davon
+sind AppArmor und SELinux. Diese erlauben die Definition von Security-Profilen für jede ausführbare Datei. Diese neben den zugewiesenen Capablities potenziell auch Berechtigungen oder Verbote zum Zugriff auf Verzeichnisse. Für Legacy-Setuid-Anwendungen mag die Definition aller notwendigen Capabilities aufwendig sein. In solchen Fällen hilft AppArmor bei der Generierung eines Profils. Wird der Kommandozeilenbefehl \texttt{aa-genprof} auf einem Executable ausgeführt, so generiert
+AppArmor ein leeres Profil, konfiguriert das definierte Programm im `Complain'-Mode und berichtet bei Überschreitungen der (dato undefinierten) Rechte. So kann für jede der auffallenden Überschreitungen entschieden werden, ob das Recht erlaubt oder verboten werden sollte. So könnte im demonstrierten Fall wieder die Capability \texttt{CAP\_SYS\_TIME} erlaubt, aber der Zugriff auf \texttt{/safe} verboten werden.
+
+

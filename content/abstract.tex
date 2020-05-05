@@ -1,0 +1,18 @@
+%!TEX root = ../main.tex
+
+\pagestyle{empty}
+
+% override abstract headline
+\renewcommand{\abstractname}{Abstract}
+
+\begin{abstract}
+
+Many real-time applications like databases or servers record the occurring events in log files using semi-structured language. These events happen in varying time distances and provide a wide set of different information. Large applications produce large amounts of information that quickly become difficult to analyze by hand. Time Series Modeling can be applied to detect unexpected behavior within these processes.
+
+To do so the information that an be analyzed has to be abstracted from these log files. Natural Language Processing (NLP) technologies can be used to extract these from a set of log files coming from different applications.
+
+\textit{The human readable parts of messages can not simply be extracted using NLP technologies. Templates are mined from log records to produce representative event identifiers.}
+
+Afterwards anomalies can be detected \sout{by using dynamic thresholding approaches. These depend on the ability to model the previously extracted information. Information that diverges from what a model predicts could be anomalous} \textit{by analyzing the stream of extracted features or events. A framework for processing and anomaly detection in log files is presented along with possible implementations.}
+
+\end{abstract}
