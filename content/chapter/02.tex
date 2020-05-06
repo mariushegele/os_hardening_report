@@ -1,6 +1,17 @@
 
 \chapter{Taktiken zur Härtung von Betriebssystemen}
 
+% 1. Least Privilege Operation
+%   1. Service Accounts
+%   2. Seccomp-bpf
+%   3. Setuid und Capabilities
+%   4. MAC
+%   5. Prozess Separierung
+%   6. Address Space Layout Randomization
+% 2. Sandboxing
+%   1. Namespaces and System Call Filters
+%   2. Virtualization
+
 In diesem Teil soll auf mögliche Taktiken zur Härtung eines Linux-Betriebssystems gegen Angriffe unterschiedlicher Art eingegangen werden. Diese Auflistung ist nicht vollständig. Der Fokus liegt auf den zwei groben Taktiken laufende Prozess mit geringst möglichen Privilegien zu versehen (\gls{Least Privilege}) oder in einer sog.\ \gls{Sandbox} abzuschirmen.
 
 \section{Least Privilege Betrieb}
@@ -26,37 +37,17 @@ Linux Dateisysteme unterstützen das traditionelle Unix-Format für Zugriffsbere
 Eine simple aber notwendige Maßnahme um Privilegien auf einem solchen Dateisystem zu separieren ist, dass jede Anwendung im Namen eines korrespondierenden Nutzers läuft. Nur dieser Nutzer hat Zugriff auf die App-spezififischen Daten und vor allem keine Einsicht in die Informationen anderer Anwendungen oder des Systems. Dies ist der grundlegende Baustein des Android Sandbox Modells \cite{android-sandbox}. Jeder App wird eine eigenes Verzeichnis und eine eigene UID zugewiesen.
 
 Angenommen es existiert eine einfache Browser Anwendung, die über eine Sicherheitslücke Angreifern Arbitrary Code Execution unter den Privilegien des Prozesses ermöglicht. Ein Angreifer hätte potenziell Interesse, die Inhalte anderer Anwendungen, wie des Kalenders zu erspähen.
-
-\begin{lstlisting}[language=c]
-// /apps/browser/main.c
-
-hers = fopen("/apps/calendar/data.txt", "r");
-if(hers == NULL) {
-    printf("Failed to peek into the calendar\n");
-    return 1;
-}
-fgets(buf, 255, hers);  
-printf("Read: %s\n", buf);
-fclose(hers);
-\end{lstlisting}
-
 Statt den Browser und den Kalender und deren Daten unter derselben UID zu halten, sollte beide ihre eigenen ``Service-Accounts'' haben. Unter Linux sind bereits bestimmte UID-Bereiche für solche ``Service-Accounts'' reserviert. Wird ein Nutzer mit \texttt{adduser \-\-system} erstellt, so ist es nicht möglich sich als dieser Nutzer anzumelden (z.B. über SSH). Die Zugriffsberechtigung (\texttt{umask}) der Anwendungen sollten auf einzig auf Zugriff durch den Inhaber (Service-Account) beschränkt werden.
 
 \begin{lstlisting}[language=bash]
-$ ./browser/main
-Read from calendar: Today I have a doctors appointment at 4 pm to check up on my stomach aches.
+$ sudo -u browser cat calendar/data.txt
+Today I have a doctors appointment at 4 pm to check up on my stomach aches.
 
 $ sudo adduser --system --home /apps/calendar calendar
 $ sudo chmod 700 /apps/calendar
 
-$ ll /apps/calendar
-drwxr-xr-x  2 calendar nogroup 4096 Apr 29 17:05 calendar/
-
-$ ./browser/main
-Failed to peek into the calendar
-
-$ sudo -u calendar ls -l calendar
--rw-rw-r-- 1 calendar calendar  76 Apr 29 16:26 data.txt
+$ sudo -u browser cat calendar/data.txt
+cat: /apps/calendar/data.txt: Permission denied
 \end{lstlisting}
 
 Um sicherzustellen, dass alle Daten in den jeweiligen Applikations-Verzeichnissen unter derselben DAC-Policy (700) erstellt werden, sollten Default-Permissions über \texttt{umask} und Access Control Listen (ACL) gesetzt werden. 
@@ -66,10 +57,58 @@ $ setfacl -d -m g::--- /apps # set group to none default
 $ setfacl -d -m o::--- /apps # set other to none default
 \end{lstlisting}
 
-Damit sich dies auch auf über \texttt{adduser \-\-system --home=/apps/<app>} automatisch erstellte Nutzer-Verzeichnisse bezieht, sollte der \texttt{UMASK} Parameter unter \texttt{/etc/login.defs} auf 700 konfiguriert werden. Damit Prozesse nicht eigenständig die Inhaber ihrer Dateien ändern können (\texttt{chmod}) sollte ihnen die beiden System Calls \texttt{chown} und \texttt{chmod} über Packet-Filter (\texttt{seccomp-bpf}) verboten werden.
+Damit sich dies auch auf über \texttt{adduser \-\-system --home=/apps/<app>} automatisch erstellte Nutzer-Verzeichnisse bezieht, sollte der \texttt{UMASK} Parameter unter \texttt{/etc/login.defs} auf 700 konfiguriert werden. Damit Prozesse nicht eigenständig die Inhaber ihrer Dateien ändern können (\texttt{chmod}) sollte ihnen die beiden System Calls \texttt{chown} und \texttt{chmod} über Seccomp Packet-Filter verboten werden. 
 
-% TODO seccomp-bpf
+\subsubsection{Seccomp-Filter}
 
+Seccomp wurde entwickelt, um das Ausführen von unvertraulichem Code, wie zum Beispiel im Grid Computing oder in Browsern, zu ermöglichen. Es erlaubt es Black- oder Whitelisten für System Calls zu definieren. So wird die Schnittstelle zwischen Userland und privilegiertem Kernel minimiert.
+Im `strict'-Modus werden nur 4 rudimentäre System Calls erlaubt: \texttt{read, write, \_exit, rt\_sigreturn} \cite{man-seccomp}. Der \texttt{fopen} Call ist nicht verfügbar. Es können also Dateien nur über bereits geöffnete File Deskriptoren bearbeitet oder gelesen werden. Dieser Grad der Einschränkung ist für viele Anwendungsfälle zu hoch.
+Die Filter-Programeme können nicht auf Prozesse angewendet werden, die ohne \texttt{CAP\_SYS\_ADMIN}-Privilegien laufen und neue Privilegien erteilen\footnote{zum Beisipel über die Ausführung über \texttt{execve} eines Setuid Programms} \cite{man-seccomp, man-prctl}.
+Seccomp bietet unterschiedliche Möglichkeiten auf die Überschreitung der Policy zu reagieren. Der verbotene System Call kann von der Ausführung gestoppt werden und der aufrufende Prozess (unter anderen Optionen) beendet (\texttt{kill}) oder fortgeführt werden. Um Profile für existierende Anwendungen anzulegen bietet sich der Modus, Überschreitungen zu loggen und trotzdem auszuführen. Eine Anwendung die versucht Zugriffsrechte für ihre Dateien zu ändern, sollte zum Beispiel beendet
+werden:
+
+\begin{lstlisting}[language=c]
+scmp_filter_ctx ctx;
+ctx = seccomp_init(SCMP_ACT_ALLOW);
+
+// Black List:
+ret |= seccomp_rule_add(ctx, SCMP_ACT_KILL, SCMP_SYS(fchmodat), 0); 
+\end{lstlisting}
+
+Um im Einklang mit dem Least-Privilege-Betriebs zu bleiben, sollte statt einem Blacklist-Ansatz\footnote{\texttt{SCMP\_ACT\_ALLOW} als Default im \texttt{init} mit Verboten einzelner Calls über \texttt{SCMP\_ACT\_KILL}} ein Whitelist-Ansatz verfolgt werden, bei dem nur die tatsächlichen notwendigen Rechte erteilt werden. Für viele Anwendungen genügt die Freiheit Dateien zu öffnen, zu lesen und zu schreiben\footnote{in begrenzter Anzahl und Größe um DoS Attacken zu vermeiden}.
+Alternativ können Listen wie Docker's Standardprofil bei der Identifizierung kritischer System Calls wie \texttt{ptrace}, \texttt{create\_module} und \texttt{reboot} helfen \cite{docker-seccomp}. 
+
+Mit \texttt{seccomp} gibt es auch die Möglichkeit, System Calls in dem Raum der validen Argumente einzuschränken. So können zum Beispiel die Nutzung von \texttt{chmod} feiner eingeschränkt werden, indem zum Beispiel eine Änderung der Rechte auf geringeres als \texttt{rwx} erlaubt wird. Argumente an System Calls werden über Register übergeben \cite{man-syscall}. Sind Argumente numerische Werte, so kann \texttt{seccomp} die entsprechenden Register prüfen,
+doch sind sie Pointer so kann es nur diesen prüfen jedoch nicht den referenzierten Wert. So können zum Beispiel nicht Pfade (Strings) an \texttt{open} gefiltert werden. Für solche Einschränkungen benötigt es andere Sicherheits-Vorkehrungen.
+
+\subsubsection{Prozess Separierung}
+
+Ebenso wie die Verzeichnisse anderer Anwendungen, sollten auch die laufenden Prozesse anderer Anwendungen nicht sichtbar sein. Standardmäßig sind die einem Prozess korrespondierenden Verzeichnisse unter \texttt{/proc/<pid>} für jeden sichtbar. Diese enthalten sensitive lesbare Informationen wie \texttt{cmdline}, was die Kommandzeile mit Argumenten anzeigt, mit der der Prozesse gestartet wurde oder \texttt{status}, was nützliche Informationen wie den Zustand des Prozesses, dessen
+UID, dessen Parent ID, dessen Speichergröße oder dessen \texttt{seccomp} Modus anzeigt. Um diese Weltoffenheit vertraulicher Informationen zu reduzieren, kann \texttt{/proc} mit der \texttt{hidepid=2} Flag gemountet werden. Dies bewirkt, dass gennante Verzeichnisse nicht mehr sichtbar sind und damit die PID's der laufenden Prozesse nicht mehr in Form eines Verzeichnisses und nicht mehr unter \texttt{ps aux} auftreten. 
+
+\begin{lstlisting}[language=bash]
+$ sudo -u calendar sleep 3600 &
+[1] 3508
+
+$ sudo -u browser cat /proc/3508/cmdline | strings -1
+sleep
+3600
+
+$ sudo mount -o remount,rw,hidepid=2 /proc
+
+$ sudo -u browser cat /proc/3508/cmdline | strings -1
+cat: /proc/3508/cmdline: No such file or directory
+\end{lstlisting}
+
+Prozesse können natürlich weiterhin über Abtasten (z.B. über \texttt{kill}) erkannt werden. Weitere Sicherheitsvorkehrungen beim Mounten von \texttt{/proc} können die Optionen \texttt{nodev}, \texttt{noexec} und \texttt{nosuid} sein. Diese verhindern die Verwendung von Special Devices und damit direkten Zugriff auf Hardware, das Ausführen von Binaries in diesem Filesystem bzw. das Respektieren von Setuid-Bits oder Capabilities. Alle diese Funktionen sollten unter \texttt{/proc} keine Anwendung finden und können damit deaktiviert werden.
+
+Die Nutzung von \texttt{ptrace} sollte für Service-Accounts unmöglich gemacht werden. Es erlaubt, Prozesse in der Laufzeit zu verfolgen und zu modifizieren \cite{man-ptrace}. Dies wird zum Beispiel für Debugging genutzt, kann aber auch einem Angreifer als mächtiges Tool zur Privilege Escalation dienen \cite{mitre-process-injection}.
+Außerdem eröffnet es unter Linux Kernel < 4.8 die Möglichkeit über \texttt{SECCOMP\_RET\_TRACE} sämtliche \texttt{seccomp}-Filter zu umgehen \cite{ptrace-seccomp-bypass}.
+\texttt{Ptrace} kann über \texttt{sysctl}-Konfiguration des Yama-LSM darauf beschränkt werden dass niemand, nur Admins oder nur Parent Prozesse (\texttt{gdb <bin>}) Einblick in laufende Prozesse erhalten. \texttt{Ptrace} nutzt Core Dumps, um Prozesse zu analysieren. Diese entsprechen Momentaufnahmen des Zustands des Speichers, der Register, des Stacks und anderer Eigenschaften des Prozesses. Ein Prozess kann über \texttt{prctl} als nicht `dump'-bar konfiguriert werden \cite{man-proc}. In diesem
+Falle lässt er sich nicht tracen \cite{man-ptrace}.
+
+% TODO Test via filter.c + 
+% ptrace(PTRACE_ATTACH, <pid>, NULL, NULL);
 
 \subsubsection{Setuid und Capabilities}
 
@@ -123,5 +162,4 @@ die Existenz von Setuid-Binaries beobachtet und über Capabilities minimiert wer
 Capabilities sind ein Beispiel für die Umsetzung eines alternativen Ansatzes zur Zugriffsberechtigung -- `Mandatory Access Control' (MAC). Im Allgemeinen wird dabei ein Regelwerk definiert, das bestimmt, ob ein Nutzer oder ein Prozess eine Operation auf einer bestimmten Ressource ausführen darf. Dabei werden nur die explizit als erlaubt definierten Operationen auch durchgeführt. Es existieren Linux Security Module zur System-weiten Umsetzung von MAC. Die zwei bekanntesten davon
 sind AppArmor und SELinux. Diese erlauben die Definition von Security-Profilen für jede ausführbare Datei. Diese neben den zugewiesenen Capablities potenziell auch Berechtigungen oder Verbote zum Zugriff auf Verzeichnisse. Für Legacy-Setuid-Anwendungen mag die Definition aller notwendigen Capabilities aufwendig sein. In solchen Fällen hilft AppArmor bei der Generierung eines Profils. Wird der Kommandozeilenbefehl \texttt{aa-genprof} auf einem Executable ausgeführt, so generiert
 AppArmor ein leeres Profil, konfiguriert das definierte Programm im `Complain'-Mode und berichtet bei Überschreitungen der (dato undefinierten) Rechte. So kann für jede der auffallenden Überschreitungen entschieden werden, ob das Recht erlaubt oder verboten werden sollte. So könnte im demonstrierten Fall wieder die Capability \texttt{CAP\_SYS\_TIME} erlaubt, aber der Zugriff auf \texttt{/safe} verboten werden.
-
 
