@@ -1,35 +1,104 @@
 @manual{man-chmod,
  title      = "chmod(1) Linux User's Manual",
  year       = "2017",
- month      = "January",
+ month      = "1",
 }
 @manual{man-capabilities,
  title      = "capabilities(7) Linux User's Manual",
  year       = "2019",
- month      = "August",
+ month      = "8",
 }
 @manual{man-seccomp,
  title      = "seccomp(2) Linux User's Manual",
  year       = "2019",
- month      = "March",
+ month      = "3",
 }
-@manual{man-seccomp,
+@manual{man-prctl,
  title      = "prctl(2) Linux User's Manual",
  year       = "2019",
- month      = "August",
+ month      = "8",
 }
 @manual{man-syscall,
  title      = "syscall(2) Linux User's Manual",
  year       = "2018",
- month      = "April",
+ month      = "4",
 }
 @manual{man-proc,
  title      = "proc(5) Linux User's Manual",
  year       = "2019",
- month      = "August",
+ month      = "8",
 }
 @manual{man-ptrace,
  title      = "ptrace(2) Linux User's Manual",
  year       = "2018",
- month      = "April",
+ month      = "4",
+}
+@manual{man-fortify,
+ title      = "feature_test_macros(7) Linux User's Manual",
+ year       = "2019",
+ month      = "3",
+}
+@article{saltzer_1975,
+	title = {The protection of information in computer systems},
+	volume = {63},
+	issn = {1558-2256},
+	doi = {10.1109/PROC.1975.9939},
+	abstract = {This tutorial paper explores the mechanics of protecting computer-stored information from unauthorized use or modification. It concentrates on those architectural structures-whether hardware or software-that are necessary to support information protection. The paper develops in three main sections. Section I describes desired functions, design principles, and examples of elementary protection and authentication mechanisms. Any reader familiar with computers should find the first section to be reasonably accessible. Section II requires some familiarity with descriptor-based computer architecture. It examines in depth the principles of modern protection architectures and the relation between capability systems and access control list systems, and ends with a brief analysts of protected subsystems and protected objects. The reader who is dismayed by either the prerequisites or the level of detail in the second section may wish to skip to Section III, which reviews the state of the art and current research projects and provides suggestions for further reading.},
+	number = {9},
+	journal = {Proceedings of the IEEE},
+	author = {Saltzer, J.H. and Schroeder, M.D.},
+	month = sep,
+	year = {1975},
+	note = {Conference Name: Proceedings of the IEEE},
+	keywords = {Access control, Authorization, Computer architecture, Data security, Information security, Modems, Permission, Protection, Terminology},
+	pages = {1278--1308},
+	file = {IEEE Xplore Full Text PDF:/Users/hegele/Zotero/storage/7I96XM4K/Saltzer and Schroeder - 1975 - The protection of information in computer systems.pdf:application/pdf;IEEE Xplore Abstract Record:/Users/hegele/Zotero/storage/BU9H3GPH/1451869.html:text/html}
+}
+
+@misc{attack-setuid,
+	title = {Setuid and {Setgid}, {Technique} {T1166} - {Enterprise} {\textbar} {MITRE} {ATT}\&{CK}®},
+	url = {https://attack.mitre.org/techniques/T1166/},
+	urldate = {2020-05-05},
+}
+@misc{attack-process-injection,
+	title = {Process Injection, {Technique} {T1166} - {Enterprise} {\textbar} {MITRE} {ATT}\&{CK}®},
+	url = {https://attack.mitre.org/techniques/T1055/},
+	urldate = {2020-05-05},
+}
+
+@misc{android-sandbox,
+	title = {Application {Sandbox}},
+	url = {https://source.android.com/security/app-sandbox},
+	language = {en},
+	urldate = {2020-05-05},
+	journal = {Android Open Source Project},
+	note = {Library Catalog: source.android.com},
+	file = {Snapshot:/Users/hegele/Zotero/storage/HBYJCG9H/app-sandbox.html:text/html}
+}
+
+@misc{ptrace-seccomp-bypass,
+	title = {Android {Kernel} {\textless} 4.8 - ptrace seccomp {Filter} {Bypass}},
+	url = {https://www.exploit-db.com/exploits/46434},
+	abstract = {Android Kernel {\textless} 4.8 - ptrace seccomp Filter Bypass.. dos exploit for Android platform},
+	language = {en},
+	urldate = {2020-05-06},
+	journal = {Exploit Database},
+	author = {Research, Google Security},
+	month = feb,
+	year = {2019},
+	note = {Library Catalog: www.exploit-db.com},
+	file = {Snapshot:/Users/hegele/Zotero/storage/FYKQD833/46434.html:text/html}
+}
+
+@misc{docker-seccomp,
+	title = {Seccomp security profiles for {Docker}},
+	url = {https://docs.docker.com/engine/security/seccomp/},
+	abstract = {Enabling seccomp in Docker},
+	language = {en},
+	urldate = {2020-05-06},
+	journal = {Docker Documentation},
+	month = may,
+	year = {2020},
+	note = {Library Catalog: docs.docker.com},
+	file = {Snapshot:/Users/hegele/Zotero/storage/IRY2RJYT/seccomp.html:text/html}
 }

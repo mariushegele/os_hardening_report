@@ -9,7 +9,7 @@
 %   5. Prozess Separierung
 %   6. Address Space Layout Randomization
 % 2. Sandboxing
-%   1. Namespaces and System Call Filters
+%   1. Containerization
 %   2. Virtualization
 
 In diesem Teil soll auf mögliche Taktiken zur Härtung eines Linux-Betriebssystems gegen Angriffe unterschiedlicher Art eingegangen werden. Diese Auflistung ist nicht vollständig. Der Fokus liegt auf den zwei groben Taktiken laufende Prozess mit geringst möglichen Privilegien zu versehen (\gls{Least Privilege}) oder in einer sog.\ \gls{Sandbox} abzuschirmen.
@@ -27,17 +27,15 @@ Ein sicheres Betriebskonzept beinhaltet eine Separierung von Privilegien mit der
   \item oder die Fähigkeit Speicher zu schreiben und auszuführen.
 \end{itemize}
 
-\subsection{System-Nutzer, Capabilities und Mandatory Access Control}
+
+\subsection{Service Accounts}
 
 Linux Dateisysteme unterstützen das traditionelle Unix-Format für Zugriffsberechtigung. Dies baut auf dem Prinzip `Discretionary Access Control' (DAC), bei dem die Zugriffsberechtigung zu einzelnen Dokumenten von der Identität des Nutzers abhängt. Dies unterscheidet sich insofern vom Least-Privilege-Prinzip, dass auch ein Nutzer höchsten Ranges nicht an jeder Aufgabe beteiligt ist und damit nicht jeden möglichen Zugriff benötigt.
 
-
-\subsubsection{Service Accounts}
-
-Eine simple aber notwendige Maßnahme um Privilegien auf einem solchen Dateisystem zu separieren ist, dass jede Anwendung im Namen eines korrespondierenden Nutzers läuft. Nur dieser Nutzer hat Zugriff auf die App-spezififischen Daten und vor allem keine Einsicht in die Informationen anderer Anwendungen oder des Systems. Dies ist der grundlegende Baustein des Android Sandbox Modells \cite{android-sandbox}. Jeder App wird eine eigenes Verzeichnis und eine eigene UID zugewiesen.
+Eine simple aber notwendige Maßnahme um Privilegien auf einem solchen Dateisystem zu separieren ist, dass jede Anwendung im Namen eines korrespondierenden Nutzers läuft. Nur dieser Nutzer hat Zugriff auf die App-spezifischen Daten und vor allem keine Einsicht in die Informationen anderer Anwendungen oder des Systems. Dies ist der grundlegende Baustein des Android Sandbox Modells \cite{android-sandbox}. Jeder App wird ein eigenes Verzeichnis und eine eigene UID zugewiesen.
 
 Angenommen es existiert eine einfache Browser Anwendung, die über eine Sicherheitslücke Angreifern Arbitrary Code Execution unter den Privilegien des Prozesses ermöglicht. Ein Angreifer hätte potenziell Interesse, die Inhalte anderer Anwendungen, wie des Kalenders zu erspähen.
-Statt den Browser und den Kalender und deren Daten unter derselben UID zu halten, sollte beide ihre eigenen ``Service-Accounts'' haben. Unter Linux sind bereits bestimmte UID-Bereiche für solche ``Service-Accounts'' reserviert. Wird ein Nutzer mit \texttt{adduser \-\-system} erstellt, so ist es nicht möglich sich als dieser Nutzer anzumelden (z.B. über SSH). Die Zugriffsberechtigung (\texttt{umask}) der Anwendungen sollten auf einzig auf Zugriff durch den Inhaber (Service-Account) beschränkt werden.
+Statt den Browser und den Kalender und deren Daten unter derselben UID zu halten, sollte beide ihre eigenen ``Service-Accounts'' haben. Unter Linux sind bereits bestimmte UID-Bereiche für solche Nutzer reserviert. Wird ein Nutzer mit \texttt{adduser -{}-system} erstellt, so ist es nicht möglich sich als dieser Nutzer anzumelden (z.B. über SSH). Die Zugriffsberechtigung (\texttt{umask}) der Anwendungsverzeichnisse sollten auf einzig Zugriff durch den Inhaber (Service-Account) beschränkt werden.
 
 \begin{lstlisting}[language=bash]
 $ sudo -u browser cat calendar/data.txt
@@ -57,14 +55,14 @@ $ setfacl -d -m g::--- /apps # set group to none default
 $ setfacl -d -m o::--- /apps # set other to none default
 \end{lstlisting}
 
-Damit sich dies auch auf über \texttt{adduser \-\-system --home=/apps/<app>} automatisch erstellte Nutzer-Verzeichnisse bezieht, sollte der \texttt{UMASK} Parameter unter \texttt{/etc/login.defs} auf 700 konfiguriert werden. Damit Prozesse nicht eigenständig die Inhaber ihrer Dateien ändern können (\texttt{chmod}) sollte ihnen die beiden System Calls \texttt{chown} und \texttt{chmod} über Seccomp Packet-Filter verboten werden. 
+Damit sich dies auch auf über \texttt{adduser -{}-system -{}-home=/apps/<app>} automatisch erstellte Nutzer-Verzeichnisse bezieht, sollte der \texttt{UMASK} Parameter unter \texttt{/etc/login.defs} auf 700 konfiguriert werden. Damit Prozesse nicht eigenständig die Inhaber ihrer Dateien ändern können (\texttt{chmod}) sollten ihnen die beiden System Calls \texttt{chown} und \texttt{chmod} über \texttt{seccomp}-Filter verboten werden. 
 
-\subsubsection{Seccomp-Filter}
+\subsection{Seccomp-Filter}
 
-Seccomp wurde entwickelt, um das Ausführen von unvertraulichem Code, wie zum Beispiel im Grid Computing oder in Browsern, zu ermöglichen. Es erlaubt es Black- oder Whitelisten für System Calls zu definieren. So wird die Schnittstelle zwischen Userland und privilegiertem Kernel minimiert.
+\texttt{Seccomp} wurde entwickelt, um das Ausführen von unvertraulichem Code, wie zum Beispiel im Grid Computing oder in Browsern, zu ermöglichen. Es erlaubt es Black- oder Whitelisten für System Calls zu definieren. So wird die Schnittstelle zwischen Userland und privilegiertem Kernel minimiert.
 Im `strict'-Modus werden nur 4 rudimentäre System Calls erlaubt: \texttt{read, write, \_exit, rt\_sigreturn} \cite{man-seccomp}. Der \texttt{fopen} Call ist nicht verfügbar. Es können also Dateien nur über bereits geöffnete File Deskriptoren bearbeitet oder gelesen werden. Dieser Grad der Einschränkung ist für viele Anwendungsfälle zu hoch.
-Die Filter-Programeme können nicht auf Prozesse angewendet werden, die ohne \texttt{CAP\_SYS\_ADMIN}-Privilegien laufen und neue Privilegien erteilen\footnote{zum Beisipel über die Ausführung über \texttt{execve} eines Setuid Programms} \cite{man-seccomp, man-prctl}.
-Seccomp bietet unterschiedliche Möglichkeiten auf die Überschreitung der Policy zu reagieren. Der verbotene System Call kann von der Ausführung gestoppt werden und der aufrufende Prozess (unter anderen Optionen) beendet (\texttt{kill}) oder fortgeführt werden. Um Profile für existierende Anwendungen anzulegen bietet sich der Modus, Überschreitungen zu loggen und trotzdem auszuführen. Eine Anwendung die versucht Zugriffsrechte für ihre Dateien zu ändern, sollte zum Beispiel beendet
+Die Filter können nicht auf Prozesse angewendet werden, die ohne \texttt{CAP\_SYS\_ADMIN}-Privilegien laufen und neue Privilegien erteilen\footnote{zum Beisipel über die Ausführung über \texttt{execve} eines Setuid Programms} \cite{man-seccomp, man-prctl}.
+Seccomp bietet unterschiedliche Möglichkeiten auf die Überschreitung der Policy zu reagieren. Der verbotene System Call kann von der Ausführung gestoppt werden und der aufrufende Prozess (unter anderen Optionen) beendet (\texttt{kill}) oder fortgeführt werden. Um Profile für existierende Anwendungen anzulegen bietet sich der Modus an, Überschreitungen zu loggen und trotzdem auszuführen. Eine Anwendung die versucht Zugriffsrechte für ihre Dateien zu ändern, sollte zum Beispiel beendet
 werden:
 
 \begin{lstlisting}[language=c]
@@ -78,13 +76,14 @@ ret |= seccomp_rule_add(ctx, SCMP_ACT_KILL, SCMP_SYS(fchmodat), 0);
 Um im Einklang mit dem Least-Privilege-Betriebs zu bleiben, sollte statt einem Blacklist-Ansatz\footnote{\texttt{SCMP\_ACT\_ALLOW} als Default im \texttt{init} mit Verboten einzelner Calls über \texttt{SCMP\_ACT\_KILL}} ein Whitelist-Ansatz verfolgt werden, bei dem nur die tatsächlichen notwendigen Rechte erteilt werden. Für viele Anwendungen genügt die Freiheit Dateien zu öffnen, zu lesen und zu schreiben\footnote{in begrenzter Anzahl und Größe um DoS Attacken zu vermeiden}.
 Alternativ können Listen wie Docker's Standardprofil bei der Identifizierung kritischer System Calls wie \texttt{ptrace}, \texttt{create\_module} und \texttt{reboot} helfen \cite{docker-seccomp}. 
 
-Mit \texttt{seccomp} gibt es auch die Möglichkeit, System Calls in dem Raum der validen Argumente einzuschränken. So können zum Beispiel die Nutzung von \texttt{chmod} feiner eingeschränkt werden, indem zum Beispiel eine Änderung der Rechte auf geringeres als \texttt{rwx} erlaubt wird. Argumente an System Calls werden über Register übergeben \cite{man-syscall}. Sind Argumente numerische Werte, so kann \texttt{seccomp} die entsprechenden Register prüfen,
-doch sind sie Pointer so kann es nur diesen prüfen jedoch nicht den referenzierten Wert. So können zum Beispiel nicht Pfade (Strings) an \texttt{open} gefiltert werden. Für solche Einschränkungen benötigt es andere Sicherheits-Vorkehrungen.
+Mit \texttt{seccomp} gibt es auch die Möglichkeit, System Calls in dem Raum der validen Argumente einzuschränken. So kann zum Beispiel die Nutzung von \texttt{chmod} feiner eingeschränkt werden, indem eine Änderung der Rechte nur auf geringeres als \texttt{rwx} für den Inhaber erlaubt wird. Argumente an System Calls werden über Register übergeben \cite{man-syscall}. Sind Argumente numerische Werte, so kann \texttt{seccomp} die entsprechenden Register prüfen,
+doch sind sie Pointer so kann es nur diesen prüfen jedoch nicht den referenzierten Wert. Deswegen können Strings, wie zum Beispiel Dateipfade als Argumente an \texttt{open}, nicht gefiltert werden. Für solche Einschränkungen benötigt es andere Sicherheits-Vorkehrungen.
 
-\subsubsection{Prozess Separierung}
+\subsection{Prozess Separierung}
 
 Ebenso wie die Verzeichnisse anderer Anwendungen, sollten auch die laufenden Prozesse anderer Anwendungen nicht sichtbar sein. Standardmäßig sind die einem Prozess korrespondierenden Verzeichnisse unter \texttt{/proc/<pid>} für jeden sichtbar. Diese enthalten sensitive lesbare Informationen wie \texttt{cmdline}, was die Kommandzeile mit Argumenten anzeigt, mit der der Prozesse gestartet wurde oder \texttt{status}, was nützliche Informationen wie den Zustand des Prozesses, dessen
-UID, dessen Parent ID, dessen Speichergröße oder dessen \texttt{seccomp} Modus anzeigt. Um diese Weltoffenheit vertraulicher Informationen zu reduzieren, kann \texttt{/proc} mit der \texttt{hidepid=2} Flag gemountet werden. Dies bewirkt, dass gennante Verzeichnisse nicht mehr sichtbar sind und damit die PID's der laufenden Prozesse nicht mehr in Form eines Verzeichnisses und nicht mehr unter \texttt{ps aux} auftreten. 
+UID, dessen Parent ID, dessen Speichergröße oder dessen \texttt{seccomp} Modus anzeigt. Angreifer nutzen diese Informationen zur Prozess Injection und damit zur Privilege Escalation und Defense Evasion \cite{attack-process-injection}.
+Um diese Weltoffenheit vertraulicher Informationen zu reduzieren, kann \texttt{/proc} mit der \texttt{hidepid=2} Flag gemountet werden. Dies bewirkt, dass gennante Verzeichnisse nicht mehr sichtbar sind und damit die PID's der laufenden Prozesse nicht mehr in Form eines Verzeichnisses und nicht mehr unter \texttt{ps aux} auftreten. 
 
 \begin{lstlisting}[language=bash]
 $ sudo -u calendar sleep 3600 &
@@ -100,9 +99,9 @@ $ sudo -u browser cat /proc/3508/cmdline | strings -1
 cat: /proc/3508/cmdline: No such file or directory
 \end{lstlisting}
 
-Prozesse können natürlich weiterhin über Abtasten (z.B. über \texttt{kill}) erkannt werden. Weitere Sicherheitsvorkehrungen beim Mounten von \texttt{/proc} können die Optionen \texttt{nodev}, \texttt{noexec} und \texttt{nosuid} sein. Diese verhindern die Verwendung von Special Devices und damit direkten Zugriff auf Hardware, das Ausführen von Binaries in diesem Filesystem bzw. das Respektieren von Setuid-Bits oder Capabilities. Alle diese Funktionen sollten unter \texttt{/proc} keine Anwendung finden und können damit deaktiviert werden.
+Prozesse können natürlich weiterhin über Abtasten (z.B. über \texttt{kill}) erkannt werden. Weitere Sicherheitsvorkehrungen beim Mounten von \texttt{/proc} können die Optionen \texttt{nodev}, \texttt{noexec} und \texttt{nosuid} sein. Diese verhindern die Verwendung von Special Devices und damit direkten Zugriff auf Hardware, das Ausführen von Binaries in diesem Filesystem bzw.\ das Respektieren von Setuid-Bits oder Capabilities. Alle diese Funktionen sollten unter \texttt{/proc} keine Anwendung finden und können damit deaktiviert werden.
 
-Die Nutzung von \texttt{ptrace} sollte für Service-Accounts unmöglich gemacht werden. Es erlaubt, Prozesse in der Laufzeit zu verfolgen und zu modifizieren \cite{man-ptrace}. Dies wird zum Beispiel für Debugging genutzt, kann aber auch einem Angreifer als mächtiges Tool zur Privilege Escalation dienen \cite{mitre-process-injection}.
+Die Nutzung von \texttt{ptrace} sollte für Service-Accounts unmöglich gemacht werden. Es erlaubt, Prozesse in der Laufzeit zu verfolgen und zu modifizieren \cite{man-ptrace}. Dies wird zum Beispiel für Debugging genutzt, kann aber auch einem Angreifer als mächtiges Tool zur Privilege Escalation dienen \cite{attack-process-injection}.
 Außerdem eröffnet es unter Linux Kernel < 4.8 die Möglichkeit über \texttt{SECCOMP\_RET\_TRACE} sämtliche \texttt{seccomp}-Filter zu umgehen \cite{ptrace-seccomp-bypass}.
 \texttt{Ptrace} kann über \texttt{sysctl}-Konfiguration des Yama-LSM darauf beschränkt werden dass niemand, nur Admins oder nur Parent Prozesse (\texttt{gdb <bin>}) Einblick in laufende Prozesse erhalten. \texttt{Ptrace} nutzt Core Dumps, um Prozesse zu analysieren. Diese entsprechen Momentaufnahmen des Zustands des Speichers, der Register, des Stacks und anderer Eigenschaften des Prozesses. Ein Prozess kann über \texttt{prctl} als nicht `dump'-bar konfiguriert werden \cite{man-proc}. In diesem
 Falle lässt er sich nicht tracen \cite{man-ptrace}.
@@ -110,25 +109,21 @@ Falle lässt er sich nicht tracen \cite{man-ptrace}.
 % TODO Test via filter.c + 
 % ptrace(PTRACE_ATTACH, <pid>, NULL, NULL);
 
-\subsubsection{Setuid und Capabilities}
+\subsection{Setuid und Capabilities}
 
-Beim Ausführen einer Datei erhält der resultierende Prozess im Normalfall die Nutzerrechte des Aufrufenden. Eine Ausnahme zu dieser Regel herrscht, wenn die ausgeführte Datei mit einem Setuid-Bit versehen ist. Dies bewirkt, dass der resultierende Prozess stattdessen die Zugriffsrechte des Dateiinhabers erhält \cite{chmod}. Ist der Dateinhaber dabei \texttt{root}, so resultieren ausnutzbare Schwachstellen in diesen Programmen einen Schwachpunkt dar, der Privilege Escalation ermöglicht. Dasselbe gilt analog für Setgid
+Beim Ausführen einer Datei erhält der resultierende Prozess im Normalfall die Nutzerrechte des Aufrufenden. Eine Ausnahme zu dieser Regel herrscht, wenn die ausgeführte Datei mit einem Setuid-Bit versehen ist. Dies bewirkt, dass der resultierende Prozess stattdessen die Zugriffsrechte des Dateiinhabers erhält \cite{man-chmod}. Ist der Dateinhaber dabei \texttt{root}, so resultieren ausnutzbare Schwachstellen in diesen Programmen einen Schwachpunkt dar, der Privilege Escalation ermöglicht. Dasselbe gilt analog für Setgid
 Bits und Nutzergruppen. Diese Eigenschaften wird des Weiteren benutzt, um erlangte erhöhte Privilegien auf einem System über Neustarts hinweg zu persistieren \cite{attack-setuid}. Aus den genannten Gründen, sollte die Zahl der existierenden Setuid Anwendungen auf ein Minimum reduziert werden. Dies kann erreicht werden, indem einer Anwendung bestimmte Rechte (Capabilities) zu privilegierten Operationen eingeräumt werden, die normalerweise nur \texttt{root} in der Lage ist
 auszuführen. 
 
-\begin{lstlisting}[language=c,label=lst:timetravel,caption={Zeitreise mittels \texttt{stime} und der Versuch die Privilegien auf \texttt{root} auszuweiten}]
-print_time(&now);
+%,caption={Zeitreise mittels \texttt{stime} und der Versuch die Privilegien auf \texttt{root} auszuweiten}]
+\begin{lstlisting}[language=c,label=lst:timetravel]
 dest = now - 60;
-
-// let's travel
 ret = stime(&dest);
-
 if(ret != 0)
 {
     printf("Failed to travel in time.\n");
     return -1;
 }
-
 now = time(NULL);
 printf("We are in the past!!1!\n");
 print_time(&now);
@@ -138,7 +133,7 @@ setuid(0); // privilege escalation
 system("cat ~/safe/precious_data.txt && echo 'you have been pwned'");
 \end{lstlisting}
 
-Die Gefahr der Nutzung von Setuid Bits lässt sich an einem Zeitreise-Beispiel (Listing \ref{lst:timetravel}) demonstrieren. Hierzu wird der \texttt{stime} System Call verwendet, der die \texttt{CAP\_SYS\_TIME} Capability erfordert \cite{man-cap}. Nun bieten sich zwei Möglichkeiten diese der Anwendung bei der Ausführung zu erteilen: die \texttt{root}-Inhaberschaft verbunden mit einem Setuid Bit oder das einfache Erteilen der Capability.
+Die Gefahr der Nutzung von Setuid Bits lässt sich an einem Zeitreise-Beispiel (Listing \ref{lst:timetravel}) demonstrieren. Hierzu wird der \texttt{stime} System Call verwendet, der die \texttt{CAP\_SYS\_TIME} Capability erfordert \cite{man-capabilities}. Nun bieten sich zwei Möglichkeiten diese der Anwendung bei der Ausführung zu erteilen: die \texttt{root}-Inhaberschaft verbunden mit einem Setuid Bit oder das einfache Erteilen der Capability.
 
 
 \begin{lstlisting}[language=bash,label={lst:timetravel}]
@@ -157,9 +152,50 @@ $ ll time_travel*
 Das \texttt{s} auf dem Setuid-Binary indiziert das gesetzte Setuid-Bit. Eine Ausführung des SUID-Binary führt zu Privilege Escalation nach `Ausnutzen' der gemockten Vulnerability und damit zum Verlust der Vertraulichkeit auf einer sonst unlesbaren Datei. Die Setuid Funktionalität kann per Block Device mithilfe von \texttt{mount -o nosuid} deaktiviert werden. Doch dies verbietet auch das Zuweisen von Capabilities. Dies kann also nicht für alle Dateisysteme eine Lösung sein. Stattdessen sollte
 die Existenz von Setuid-Binaries beobachtet und über Capabilities minimiert werden.
 
-\subsubsection{Mandatory Access Control}
+\subsection{Mandatory Access Control}
 
 Capabilities sind ein Beispiel für die Umsetzung eines alternativen Ansatzes zur Zugriffsberechtigung -- `Mandatory Access Control' (MAC). Im Allgemeinen wird dabei ein Regelwerk definiert, das bestimmt, ob ein Nutzer oder ein Prozess eine Operation auf einer bestimmten Ressource ausführen darf. Dabei werden nur die explizit als erlaubt definierten Operationen auch durchgeführt. Es existieren Linux Security Module zur System-weiten Umsetzung von MAC. Die zwei bekanntesten davon
 sind AppArmor und SELinux. Diese erlauben die Definition von Security-Profilen für jede ausführbare Datei. Diese neben den zugewiesenen Capablities potenziell auch Berechtigungen oder Verbote zum Zugriff auf Verzeichnisse. Für Legacy-Setuid-Anwendungen mag die Definition aller notwendigen Capabilities aufwendig sein. In solchen Fällen hilft AppArmor bei der Generierung eines Profils. Wird der Kommandozeilenbefehl \texttt{aa-genprof} auf einem Executable ausgeführt, so generiert
 AppArmor ein leeres Profil, konfiguriert das definierte Programm im `Complain'-Mode und berichtet bei Überschreitungen der (dato undefinierten) Rechte. So kann für jede der auffallenden Überschreitungen entschieden werden, ob das Recht erlaubt oder verboten werden sollte. So könnte im demonstrierten Fall wieder die Capability \texttt{CAP\_SYS\_TIME} erlaubt, aber der Zugriff auf \texttt{/safe} verboten werden.
+
+\subsection{Memory Protection}
+
+Ein weiterer Ansatz, der die Privilege Escalation erschwert sind eine Privilegien-Separierung und Zufälligkeit in der Anordnung des Arbeitsspeichers. PaX ist ein Patch für den Linux Kernel, der versucht Exploits von Memory Corruption Schwachstellen zu verhindern. Zu solchen Schwachstellen zählen uninitialisierter Speicher, unkontrollierter Speicher, Buffer Overflows und Memory Leaks. 
+Buffer Overruns ermöglichen es einem Angreifenden, die Return-Addresse des aktuellen Stack-Frames mit einer Addresse zu überschreiben, die zu bösartigem Code führt (Stack Smashing). 
+
+\subsubsection{Least Privilege für Memory Pages}
+
+PaX löst dieses Problem indem es Teile des Speicher, die durch den Nutzer modifiziert werden können, als nicht ausführbar markiert. Speicher ist also entweder schreibbar oder ausführbar ($W \oplus X$). Dies entspricht einer Separierung der Privilegien auf Höhe des Speichers. Angreifer können Code dadurch nicht mehr injizieren, sondern müssen auf geladenen Library Code (wie \texttt{libc}) zurückgreifen. Bei einem \textit{return-to-libc}-Angriff überschreibt ein Angreifer den Stack mit einer Return-Addresse, die auf eine C Funktion zeigt, und andere Teil des Stacks, die als Argumente intepretiert werden. \texttt{libc} enthält die Wrapper für die Linux System Call API und bietet damit alle Freiheiten zur Interaktion mit dem Kernel. Der $W \oplus X$ Ansatz bietet hiergegen also keine Sicherheit. Damit eine Angreiferin den Kontrollfluss auf eine \texttt{libc}-Funktion lenken kann, muss sie die virtuelle Addresse dieser Funktion kennen.
+
+\subsubsection{Address Space Layout Randomization}
+
+Ist der Addressbereich zufällig angeordnet, klappt ein solcher Angriff also nur im seltenen Fall, in dem zufällig die richtige Addresse gewählt wird. Dieser Ansatz nennt sich Address Space Layout Randomization (ASLR). PaX randomisiert separat die Addressen dreier relevanter Bereiche: Executable, Mapped und Stack\footnote{Der `Executable' Bereich  enthält den
+Code und Daten. Der `Mapped' Bereich enthält den Heap, dynamische Libraries, Thread Stacks und geteilten Speicher.} \cite{pax-aslr}.
+Ein Angreifer hat daraufhin nur noch die Möglichkeit, die gewünschte Addresse zu erraten oder die Attacke über viele Versuche zu erzwingen (Brute Force). Ein falscher Versuch versetzt den gekaperten Prozess im Optimalfall in einem Ausnahmezustand (z.B. Crash). Dies sollte als Angriffsindikator registriert werden. Je nachdem wie lange das Wiederherstellen des
+angreifbaren Zustandes benötigt und wie groß der Addressraum ist, sind Brute-Force-Angriffe noch praktikabel. Auf 32-bit Architekturen kann PaX den `Mapped'-Bereich nur zu 16 Bit randomisieren. Das bedeutet, das im Durchschnitt nur 32,768 Versuche notwendig sind um die richtige Basis-Addresse dieses Bereichs zu ermitteln. Bei einem \texttt{fork} wird das zufälligte Angeordnete Speicherlayout beibehalten -- im Gegensatz zu einem Context Switch via \texttt{execve}. Speziell Web Server,
+die für jeden Request einen neuen Thread starten, haben also für jeden Request dasselbe Address-Layout. Mehrere Tausend Requests auf einem Web Server zu stellen um per Zufall die richtige Addresse zu raten ist eine praktikable und performante Angriffstaktik, die in Experimenten einen Exploit in durschnittlich 3-4 Minuten ermöglicht \cite{shacham_2004}.
+Deswegen ist die Verwendung von ASLR nur auf 64-Bit Maschinen verlässlich.
+Damit Executables im Speicher arbiträr verschoben werden können müssen sie als positionsunabhängig via \texttt{-fPIE} kompiliert werden. Dies kann auf Debian systemweit über die \texttt{DEB\_BUILD\_HARDENING\_PIE} Umgebungsvariable konfiguriert werden \cite{deb-hardening}.
+
+\subsubsection{GCC Optionen}
+
+Der GCC Compiler bietet weitere Optionen, um Executable resistent gegenüber Memory Corruption Schwachstellen zu kompilieren \cite{deb-hardening}.
+
+Die \texttt{-fstack-protector} Flag aktiviert `Stack-Smashing-Protection'. 
+Diese Sicherung baut auf den \textit{StackGuard} und \textit{ProPolice} Erweiterungen für GCC \cite{stackguard, propolice}.
+Durch \textit{StackGuard} wurden Zahlenwerte -- sogenannte `Canaries' -- eingeführt, die als Fallen im Stack before dem Return-Pointer platziert werden und bei einer unerwarteten Überschreibung einen Buffer-Overflow-Angriff indizieren. Da der Angreifende in Buffer Overflow Attacken nur sequentiell und aufsteigend in den Speicher schreiben kann, ist gesichert, dass er, um die Return Addresse zu überschreiben auch den Canary überschreiben muss. Damit ein Überschreiben der Return Addresse unentdeckt und damit ein Overflow erfolgreich bliebe, müsste der Canary mit demselben Wert überschrieben werden. Um das zu erschweren sollten die Canaries zufällig gewählt werden \cite{stackguard}. 
+% TODO ProPolice \textit{ProPolice} erweitert diesen Ansatz, indem es lokalen Variablen und Funktions-Argumente umordnet.
+Eine weitere Absicherung gegen Pointer Corrupton kann es sein, Pointer im Speicher zu verschlüsseln und erst beim Laden in ein Register zu entschlüsseln \cite{pointguard}. So kann ein Überrschrieben den Pointer zwar zerstören, aber es kann ohne Kenntniss des Schlüssels kein sinnvoller Wert geschrieben werden.
+
+% TODO D_FORTIFY_SOURCE=2
+Eine weitere Möglichkeit ein Programm auf Buffer Overflows zu prüfen, kann das Macro \texttt{\_FORTIFY\_SOURCE} gesetzt werden. Wird es auf \texttt{1} gesetzt, so finden Checks nur in der Compile Time statt. Auf \texttt{2} finden diese auch während der Laufzeit statt. Erkannte Buffer Overruns führen zum Terminieren des Prozesses \cite{man-fortify}. Diese Option ist sicherer, sollte jedoch von Tests begleitet werden. 
+
+%printf format vulns
+%multiple free errors
+%libsafe
+
+
+% GOT Overwrite Attacks
+% TODO RELRO ld -z relro
+% TODO BINDNOW ld -z now
 
