@@ -29,6 +29,7 @@ Ein sicheres Betriebskonzept beinhaltet eine Separierung von Privilegien mit der
 
 
 \subsection{Service Accounts}
+\label{sec:service-acc} 
 
 Linux Dateisysteme unterstützen das traditionelle Unix-Format für Zugriffsberechtigung. Dies baut auf dem Prinzip `Discretionary Access Control' (DAC), bei dem die Zugriffsberechtigung zu einzelnen Dokumenten von der Identität des Nutzers abhängt. Dies unterscheidet sich insofern vom Least-Privilege-Prinzip, dass auch ein Nutzer höchsten Ranges nicht an jeder Aufgabe beteiligt ist und damit nicht jeden möglichen Zugriff benötigt.
 
@@ -58,6 +59,7 @@ $ setfacl -d -m o::--- /apps # set other to none default
 Damit sich dies auch auf über \texttt{adduser -{}-system -{}-home=/apps/<app>} automatisch erstellte Nutzer-Verzeichnisse bezieht, sollte der \texttt{UMASK} Parameter unter \texttt{/etc/login.defs} auf 700 konfiguriert werden. Damit Prozesse nicht eigenständig die Inhaber ihrer Dateien ändern können (\texttt{chmod}) sollten ihnen die beiden System Calls \texttt{chown} und \texttt{chmod} über \texttt{seccomp}-Filter verboten werden. 
 
 \subsection{Seccomp-Filter}
+\label{sec:seccomp}
 
 \texttt{Seccomp} wurde entwickelt, um das Ausführen von unvertraulichem Code, wie zum Beispiel im Grid Computing oder in Browsern, zu ermöglichen. Es erlaubt es Black- oder Whitelisten für System Calls zu definieren. So wird die Schnittstelle zwischen Userland und privilegiertem Kernel minimiert.
 Im `strict'-Modus werden nur 4 rudimentäre System Calls erlaubt: \texttt{read, write, \_exit, rt\_sigreturn} \cite{man-seccomp}. Der \texttt{fopen} Call ist nicht verfügbar. Es können also Dateien nur über bereits geöffnete File Deskriptoren bearbeitet oder gelesen werden. Dieser Grad der Einschränkung ist für viele Anwendungsfälle zu hoch.
@@ -82,7 +84,8 @@ doch sind sie Pointer so kann es nur diesen prüfen jedoch nicht den referenzier
 \subsection{Prozess Separierung}
 
 Ebenso wie die Verzeichnisse anderer Anwendungen, sollten auch die laufenden Prozesse anderer Anwendungen nicht sichtbar sein. Standardmäßig sind die einem Prozess korrespondierenden Verzeichnisse unter \texttt{/proc/<pid>} für jeden sichtbar. Diese enthalten sensitive lesbare Informationen wie \texttt{cmdline}, was die Kommandzeile mit Argumenten anzeigt, mit der der Prozesse gestartet wurde oder \texttt{status}, was nützliche Informationen wie den Zustand des Prozesses, dessen
-UID, dessen Parent ID, dessen Speichergröße oder dessen \texttt{seccomp} Modus anzeigt. Angreifer nutzen diese Informationen zur Prozess Injection und damit zur Privilege Escalation und Defense Evasion \cite{attack-process-injection}.
+UID, dessen Parent ID, dessen Speichergröße oder dessen \texttt{seccomp} Modus anzeigt. Ein weitere sensitive Information ist das Speicher Layout \texttt{maps}, vor allem in Systemen, die Address Space Layout Randomization benutzen (siehe Abschnitt \ref{sec:aslr}).
+Angreifer nutzen diese Informationen zur Prozess Injection und damit zur Privilege Escalation und Defense Evasion \cite{attack-process-injection}.
 Um diese Weltoffenheit vertraulicher Informationen zu reduzieren, kann \texttt{/proc} mit der \texttt{hidepid=2} Flag gemountet werden. Dies bewirkt, dass gennante Verzeichnisse nicht mehr sichtbar sind und damit die PID's der laufenden Prozesse nicht mehr in Form eines Verzeichnisses und nicht mehr unter \texttt{ps aux} auftreten. 
 
 \begin{lstlisting}[language=bash]
@@ -156,18 +159,58 @@ die Existenz von Setuid-Binaries beobachtet und über Capabilities minimiert wer
 
 Capabilities sind ein Beispiel für die Umsetzung eines alternativen Ansatzes zur Zugriffsberechtigung -- `Mandatory Access Control' (MAC). Im Allgemeinen wird dabei ein Regelwerk definiert, das bestimmt, ob ein Nutzer oder ein Prozess eine Operation auf einer bestimmten Ressource ausführen darf. Dabei werden nur die explizit als erlaubt definierten Operationen auch durchgeführt. Es existieren Linux Security Module zur System-weiten Umsetzung von MAC. Die zwei bekanntesten davon
 sind AppArmor und SELinux. Diese erlauben die Definition von Security-Profilen für jede ausführbare Datei. Diese neben den zugewiesenen Capablities potenziell auch Berechtigungen oder Verbote zum Zugriff auf Verzeichnisse. Für Legacy-Setuid-Anwendungen mag die Definition aller notwendigen Capabilities aufwendig sein. In solchen Fällen hilft AppArmor bei der Generierung eines Profils. Wird der Kommandozeilenbefehl \texttt{aa-genprof} auf einem Executable ausgeführt, so generiert
-AppArmor ein leeres Profil, konfiguriert das definierte Programm im `Complain'-Mode und berichtet bei Überschreitungen der (dato undefinierten) Rechte. So kann für jede der auffallenden Überschreitungen entschieden werden, ob das Recht erlaubt oder verboten werden sollte. So könnte im demonstrierten Fall wieder die Capability \texttt{CAP\_SYS\_TIME} erlaubt, aber der Zugriff auf \texttt{/safe} verboten werden.
+AppArmor ein leeres Profil, konfiguriert das definierte Programm im `Complain'-Mode und berichtet bei Überschreitungen der (dato undefinierten) Rechte. So kann für jede der auffallenden Überschreitungen entschieden werden, ob das Recht erlaubt oder verboten werden sollte. So könnte im demonstrierten Fall die Capability \texttt{CAP\_SYS\_TIME} erlaubt, aber der Zugriff auf \texttt{/safe} verboten werden:
+
+\begin{lstlisting}
+#include <tunables/global>
+
+/home/otter/cap_pen_test/time_travel_cap {
+  #include <abstractions/base>
+
+  capability sys_time,
+
+  deny /safe rwx,
+
+  /home/otter/cap_pen_test/time_travel_cap mr,
+
+}
+\end{lstlisting}
 
 \subsection{Memory Protection}
 
-Ein weiterer Ansatz, der die Privilege Escalation erschwert sind eine Privilegien-Separierung und Zufälligkeit in der Anordnung des Arbeitsspeichers. PaX ist ein Patch für den Linux Kernel, der versucht Exploits von Memory Corruption Schwachstellen zu verhindern. Zu solchen Schwachstellen zählen uninitialisierter Speicher, unkontrollierter Speicher, Buffer Overflows und Memory Leaks. 
+Ein weiterer Ansatz, der die Privilege Escalation erschwert sind eine Privilegien-Separierung und Zufälligkeit in der Anordnung des Arbeitsspeichers. PaX wurde 2001 als Patch für den Linux Kernel entwickelt, der versucht Exploits von Memory Corruption Schwachstellen zu verhindern. Zu solchen Schwachstellen zählen uninitialisierter Speicher, unkontrollierter Speicher, Buffer Overflows und Memory Leaks. 
 Buffer Overruns ermöglichen es einem Angreifenden, die Return-Addresse des aktuellen Stack-Frames mit einer Addresse zu überschreiben, die zu bösartigem Code führt (Stack Smashing). 
+
+\begin{lstlisting}[language=c,caption={Stack Smashing, das ein Überspringen der \texttt{x = 1} Instruktion bewirkt. Aus \cite{alpeh1996smashing}}]
+// ./stack-smash.c
+void function(int a, int b, int c) {
+   char buffer1[5];
+   char buffer2[10];
+   int *ret;
+
+   ret = buffer1 + 12;
+   (*ret) += 8;
+}
+
+void main() {
+  int x;
+
+  x = 0;
+  function(1,2,3);
+  x = 1;
+  printf("%d\n",x);
+}
+\end{lstlisting}
+
 
 \subsubsection{Least Privilege für Memory Pages}
 
-PaX löst dieses Problem indem es Teile des Speicher, die durch den Nutzer modifiziert werden können, als nicht ausführbar markiert. Speicher ist also entweder schreibbar oder ausführbar ($W \oplus X$). Dies entspricht einer Separierung der Privilegien auf Höhe des Speichers. Angreifer können Code dadurch nicht mehr injizieren, sondern müssen auf geladenen Library Code (wie \texttt{libc}) zurückgreifen. Bei einem \textit{return-to-libc}-Angriff überschreibt ein Angreifer den Stack mit einer Return-Addresse, die auf eine C Funktion zeigt, und andere Teil des Stacks, die als Argumente intepretiert werden. \texttt{libc} enthält die Wrapper für die Linux System Call API und bietet damit alle Freiheiten zur Interaktion mit dem Kernel. Der $W \oplus X$ Ansatz bietet hiergegen also keine Sicherheit. Damit eine Angreiferin den Kontrollfluss auf eine \texttt{libc}-Funktion lenken kann, muss sie die virtuelle Addresse dieser Funktion kennen.
+PaX löst dieses Problem indem es Teile des Speicher, die durch den Nutzer modifiziert werden können, als nicht ausführbar markiert. Speicher ist also entweder schreibbar oder ausführbar ($W \oplus X$). Dies entspricht einer Separierung der Privilegien auf Höhe des Speichers. Dies kann auf Hardware umgesetzt oder auf Software-Ebene mit Performance-Overhead emuliert werden.
+Angreifer können Code dadurch nicht mehr injizieren, sondern müssen auf geladenen Library Code (wie \texttt{libc}) zurückgreifen. Bei einem \textit{return-to-libc}-Angriff überschreibt ein Angreifer den Stack mit einer Return-Addresse, die auf eine C Funktion zeigt, und andere Teil des Stacks, die als Argumente intepretiert werden. \texttt{libc} enthält die Wrapper für die Linux System Call API und bietet damit alle Freiheiten zur Interaktion mit dem Kernel. Der $W \oplus X$ Ansatz bietet hiergegen also keine Sicherheit. Damit eine Angreiferin den Kontrollfluss auf eine \texttt{libc}-Funktion lenken kann, muss sie die virtuelle Addresse dieser Funktion kennen.
+% TODO return-into-libc attack: solar designer (Alexander Peslyak) https://seclists.org/bugtraq/1997/Aug/63
 
 \subsubsection{Address Space Layout Randomization}
+\label{sec:aslr}
 
 Ist der Addressbereich zufällig angeordnet, klappt ein solcher Angriff also nur im seltenen Fall, in dem zufällig die richtige Addresse gewählt wird. Dieser Ansatz nennt sich Address Space Layout Randomization (ASLR). PaX randomisiert separat die Addressen dreier relevanter Bereiche: Executable, Mapped und Stack\footnote{Der `Executable' Bereich  enthält den
 Code und Daten. Der `Mapped' Bereich enthält den Heap, dynamische Libraries, Thread Stacks und geteilten Speicher.} \cite{pax-aslr}.
@@ -175,7 +218,17 @@ Ein Angreifer hat daraufhin nur noch die Möglichkeit, die gewünschte Addresse 
 angreifbaren Zustandes benötigt und wie groß der Addressraum ist, sind Brute-Force-Angriffe noch praktikabel. Auf 32-bit Architekturen kann PaX den `Mapped'-Bereich nur zu 16 Bit randomisieren. Das bedeutet, das im Durchschnitt nur 32,768 Versuche notwendig sind um die richtige Basis-Addresse dieses Bereichs zu ermitteln. Bei einem \texttt{fork} wird das zufälligte Angeordnete Speicherlayout beibehalten -- im Gegensatz zu einem Context Switch via \texttt{execve}. Speziell Web Server,
 die für jeden Request einen neuen Thread starten, haben also für jeden Request dasselbe Address-Layout. Mehrere Tausend Requests auf einem Web Server zu stellen um per Zufall die richtige Addresse zu raten ist eine praktikable und performante Angriffstaktik, die in Experimenten einen Exploit in durschnittlich 3-4 Minuten ermöglicht \cite{shacham_2004}.
 Deswegen ist die Verwendung von ASLR nur auf 64-Bit Maschinen verlässlich.
-Damit Executables im Speicher arbiträr verschoben werden können müssen sie als positionsunabhängig via \texttt{-fPIE} kompiliert werden. Dies kann auf Debian systemweit über die \texttt{DEB\_BUILD\_HARDENING\_PIE} Umgebungsvariable konfiguriert werden \cite{deb-hardening}.
+
+Damit Executables im Speicher arbiträr verschoben werden können müssen sie als positionsunabhängig via \texttt{-pie -fPIE} kompiliert werden. Dies stellte historisch das größte Problem in der Effektivität von ASLR dar -- viele der installierten Anwendungen waren/sind nicht auf diese Weise kompiliert. Seit Debian 9 ist PIE jedoch der Standard für den GCC Compiler \cite{debian-9}.
+
+Kernel Address Space Layout Randomization (KASLR) wendet das beschriebene Prinizip an, um den Kernel gegenüber Exploits zu sichern. Normalerweise ist die Platzierung bestimmter Symbole für eine Kernel-Version konstant und bekannt. In einem simplen Ansatz kann die Basis-Addresse aller Symbole beim Systemstart zufällig platziert werden. Das irrtümliche Zugreifen auf ein nicht-existentes Symbol hat im Falle des Kernels deutliche größere Implikation: ein System Crash. Die Wahrscheinlichkeit
+des Erfolgs von Brute Force Attacken sinkt damit in diesem Fall beträchtlich. Dabei ist es wichtig, dass Kernel Addressen nicht über andere Quellen zu erlangen sind \cite{lwn-kaslr}. Mit \texttt{sysctl -w kernel.kptr\_restrict=1}  werden Kernel Pointer, die über \texttt{"\%pK"} ausgegeben werden vorher mit Nullen ersetzt, außer der Nutzer besitzt die nötigen Privilegien\footnote{und hat diese nicht über ein setuid Binary erlangt}. Ebenso sollten die Sichtbarkeit von \texttt{dmesg} Kernel Logs
+über \texttt{kernel.dmesg\_restrict} auf Nutzer mit \texttt{CAP\_SYSLOG} Capability beschränkt werden \cite{sysctl-kernel}.
+
+% TODO “ASLR Smack & Laugh Reference” Tilo Müller
+% TODO KPTI KAISER
+% TODO branch predictor collisions as side-channel
+Seit 2005 unterstützt Linux ASLR. Es kann über \texttt{sysctl -w kernel.randomize\_va\_space} kontrolliert werden.
 
 \subsubsection{GCC Optionen}
 
@@ -185,17 +238,129 @@ Die \texttt{-fstack-protector} Flag aktiviert `Stack-Smashing-Protection'.
 Diese Sicherung baut auf den \textit{StackGuard} und \textit{ProPolice} Erweiterungen für GCC \cite{stackguard, propolice}.
 Durch \textit{StackGuard} wurden Zahlenwerte -- sogenannte `Canaries' -- eingeführt, die als Fallen im Stack before dem Return-Pointer platziert werden und bei einer unerwarteten Überschreibung einen Buffer-Overflow-Angriff indizieren. Da der Angreifende in Buffer Overflow Attacken nur sequentiell und aufsteigend in den Speicher schreiben kann, ist gesichert, dass er, um die Return Addresse zu überschreiben auch den Canary überschreiben muss. Damit ein Überschreiben der Return Addresse unentdeckt und damit ein Overflow erfolgreich bliebe, müsste der Canary mit demselben Wert überschrieben werden. Um das zu erschweren sollten die Canaries zufällig gewählt werden \cite{stackguard}. 
 % TODO ProPolice \textit{ProPolice} erweitert diesen Ansatz, indem es lokalen Variablen und Funktions-Argumente umordnet.
-Eine weitere Absicherung gegen Pointer Corrupton kann es sein, Pointer im Speicher zu verschlüsseln und erst beim Laden in ein Register zu entschlüsseln \cite{pointguard}. So kann ein Überrschrieben den Pointer zwar zerstören, aber es kann ohne Kenntniss des Schlüssels kein sinnvoller Wert geschrieben werden.
+Die \texttt{-fstack-protector} Option sichert weniger als etwa 2\% der Funktionen mit der beschriebenen Methode. Die texttt{-fstack-protector-all} Optionen sichert alle und \texttt{-fstack-protector-strong} versucht eine Balance zwischen beiden zu finden \cite{stack-protector-strong}.
+Die Funktion lässt sich nicht nur auf Userspace Code, sondern mittels \texttt{CONFIG\_CC\_STACKPROTECTOR} Option auch auf den Kernel beziehen \cite{ubuntu-security}.
 
-% TODO D_FORTIFY_SOURCE=2
-Eine weitere Möglichkeit ein Programm auf Buffer Overflows zu prüfen, kann das Macro \texttt{\_FORTIFY\_SOURCE} gesetzt werden. Wird es auf \texttt{1} gesetzt, so finden Checks nur in der Compile Time statt. Auf \texttt{2} finden diese auch während der Laufzeit statt. Erkannte Buffer Overruns führen zum Terminieren des Prozesses \cite{man-fortify}. Diese Option ist sicherer, sollte jedoch von Tests begleitet werden. 
+\begin{lstlisting}[language=bash]
+$ ./stack-smash
+*** stack smashing detected ***: <unknown> terminated
+Aborted (core dumped)
+\end{lstlisting}
 
-%printf format vulns
-%multiple free errors
+Eine weitere Absicherung gegen Pointer Corrupton kann es sein, Pointer im Speicher zu verschlüsseln und erst beim Laden in ein Register zu entschlüsseln \cite{pointguard}. So kann ein Überrschrieben den Pointer zwar zerstören, aber es kann ohne Kenntniss des Schlüssels kein sinnvoller Wert geschrieben werden. Dies ist nicht in GCC integriert, aber auf Pointer, die in \texttt{glibc} gespeichert sind, angewendet worden \cite{ubuntu-security}.
+
+Um ein Programm auf Buffer Overflows zu prüfen, kann des Weiteren das Macro \texttt{\_FORTIFY\_SOURCE} gesetzt werden. Es berechnet die Größe eines Buffers und validiert vor dem Ausühren eines \texttt{memcpy}, \texttt{gets} o.ä., dass die zu kopierenden Daten, nicht die Größe des Buffers übersteigen.
+Wird es auf \texttt{1} gesetzt, so finden Checks nur in der Compile Time statt. Auf \texttt{2} finden diese auch während der Laufzeit statt. Erkannte Buffer Overruns führen zum Terminieren des Prozesses \cite{man-fortify}. Diese Option ist sicherer, sollte jedoch von Tests begleitet werden. 
+
+%printf format vulns Wformat-nonliteral (FormatGuard)
+%multiple free errors (Conover - Double Free)
+%NULL ptr deref (Spengler)
 %libsafe
 
-
 % GOT Overwrite Attacks
-% TODO RELRO ld -z relro
-% TODO BINDNOW ld -z now
+  % TODO RELRO ld -z relro https://systemoverlord.com/2017/03/19/got-and-plt-for-pwning.html
+  % TODO BINDNOW ld -z now
+
+Es gibt noch weitere bekannte Memory Corruption Schwachstellen und Mitigationstechniken über GCC Optionen. Diese können über das \texttt{dpkg-buidlflags} eingefügt werden. Für unvertrauenswürdige Anwendungen sollte \texttt{DEB\_BUILD\_MAINT\_OPTIONS = hardening=+all} gesetzt werden, um Position Independent Execution und BINDNOW zu aktivieren. Eine Auskunft darüber ob installierte Binaries gehärtet sind bietet \texttt{hardening-check} \cite{debian-hardening}. 
+% TODO Diese Optionen können nicht systemweit aktiviert werden, sondern müssen in jedem Build und für jedes Package separat konfiguriert und geprüft werden.
+
+
+
+\section{Sandboxing}
+
+Ein Drive-by Compromise ist eine Attacke, bei der Prozess des Browsers auf dem Rechner des Nutzer über den Besuch einer Webseite und das Ausnutzen einer Schwachstelle übernommen wird. Nebem dem Browser sind Office-Anwendungen und bekannte Third-Party-Anwendungen ein beliebeter Angriffsvektor. Da diese Anwendungen weit verbreitet und Nutzer mit deren Handhabung vertraut sind, bieten diese ein gutes Einstiegsfenster für Angreifer, die +ber Spearfishing Links oder Dokumente an ihre Opfer
+versenden. Das schlichte Öffnen dieser kann dabei bereits genügen, um dem Angreifer Arbitrary Code Execution zu verschaffen. Die genannten Anwendungen sind groß, komplex und werden kontinuerlich mit neuen Featuren weiterentwickelt. Aus diesen Gründen werden sie vielleicht sogar nie fehlerfrei sein. Die Verwendung dieser ist für viele Unternehmen jedoch geschäftskritisch. Der einzige Weg trotz der Verwendung solcher Anwendungen, die Sicherheit zu wahren ist es, diese bestmöglich
+`abzuschirmen', damit die gennanten Ausbrüche möglichst effektlos bleiben.
+
+Die bereits beschrieben Separierung und Minimierung von Privilegien ist ein wichtiger Bestandteil dieses `Sandboxing'-Ansatzes. Ist ein Angreifer in der Lage, aus dem abgeschirmten Bereich auszubrechen sollte er dennoch so wenig Privilegien wie möglich haben.
+
+Hier sollen zwei Sandboxing-Ansätze vorgestellt werden: 
+
+\begin{itemize}
+    \item Linux Sandboxing basierend auf Seccomp, cgroups und Namespaces
+    \item Sandboxing basierend auf virtuellen Maschinen
+\end{itemize}
+
+\subsection{Linux Sandboxes}
+
+Chromium und Firefox setzen primär auf Restriktion von System Calls über Seccomp, Ressourcenbeschränkung über cgroups sowie Namespaces \cite{firefox-sandbox, chromium-sandbox}. Firejail ist eine Command Line Tool mit dem jegliche Programme durch dieselben Techniken abgekapselt werden können \cite{firejail}.
+Vor allem bei den Auswahl an Tools zur Virtualisierung auf Betriebssystemebene, sticht die Ähnlichkeit in der Nutzung dieser Linux Funktionen heraus. Zuerst OpenVZ \cite{openvz}, dann LXC
+\cite{lxc}, später Docker \cite{docker} und letztendlich runc \cite{runc} bauen auf Kernel namespaces, AppArmor oder SELinux, Seccomp, Chroot `jails', Capabilities und cgroups. Auf diese Weise soll auf Anwendungsebene eine Umgebung hergestellt werden, die so nah wie möglich an der einer virtuellen Maschine ist, ohne den Overhead eines separaten Kernels und der Hardware Emulation zu haben \cite{lxc}.
+Mittlerweile existieren verschiedene Bibliotheken, um das Erstellen von Containern, also das Festlegen von Capabilities, das Verwalten von Namespaces, Filtern von System Calls etc. zu vereinfachen und zu standardisieren \cite{libvirt-lxc, systemd-nspawn, runc-libcontainer}.
+
+Auf Seccomp, Capabilities und AppArmor wurde bereits eingegangen. Diese werden
+benutzt, um die Wahrscheinlichkeit einer Privilege Escalation im Falle eines Container Escapes zu reduzieren und Minimierung dafür die Oberfläche des Kernels und des File Systems. In diesem Abschnitt soll daher näher auf chroot, Namespaces, sowie cgroups eingegangen werden.
+
+Linux Namespaces sind als leichtgewichtige Variante zu Virtualisierung ohne Hypervisor zu sehen. Sie funktionieren ähnlich zur Funktionalität von \texttt{chroot}. Dieses kann benutzt werden, um das root Verzeichnis für den aktuellen Prozess zu ändern . Für diesen Prozess sind im Nachhinein Dateien eines Verzeichnisses das über dem spezifizierten liegt unsichtbar. Es ist jedoch nicht als Sandbox-Mechanismus gedacht. Aus einer chroot Sandbox kann
+durch simples Wechseln und Bewegen von Verzeichnissen ausgebrochen werden \cite{man-chroot}. Alleinstehend genügt dies also nicht für einen effektiven Sandbox-Mechanismus.
+
+Auf dieselbe Art und Weise isoliert ein Linux Namespace zum Beispiel Mount Punkte. Änderungen an den Mount Punkten eines Namespace
+werden nicht auf anderen repliziert \cite{man-mount-ns}.
+Es gibt unterschiedliche Arten von Namespace, die allen nach demselben Prinzip der Isolation von Ressourcen oder Informationen funktionieren. (siehe \ref{tab:ns})
+
+\begin{table}[]
+\label{tab:ns}
+\centering
+\resizebox{0.9\textwidth}{!}{%
+\begin{tabular}{lll}
+\textbf{Namespace} & \textbf{Isoliert}                  & \textbf{Hierarchisch} \\ \hline
+User               & User und Group IDs                 & Ja    \\
+PID                & Prozess IDs                        & Ja    \\
+Cgroup             & Cgroup root Verzeichnis            & Ja    \\
+Mount              & Mount Punkte                       & Nein  \\
+Network            & Network Devices, Stacks, Ports     & Nein  \\
+UTS                & Hostname und NIS domain name       & Nein  \\
+IPC                & System V IPC, POSIX Message queues & Nein
+\end{tabular}%
+}
+\caption{Aus \cite{man-ns-7}}
+\end{table}
+
+Beim Erstellen eines hierarchischen Namespaces werden die Einstellungen des aktuellen Prozesses oder Nutzers an den `Child'-Namespace vererbt. Änderungen an diesen Kindern werden nicht in der Hierarchie nach oben propagiert \cite{man-7-ns}. 
+
+Durch \textbf{PID Namespaces} sind auf dem Host laufende Prozesse im Container nicht weiter sichtbar. Auch wenn der init Prozess im Container PID 1 hat und damit Wurzel des Prozessbaumes ist, ist er für den Host nur ein weiterer Prozess mit einer PID ungleich 1. Verschiedene Anwendungen können ihr Prozesse frei segmentieren und müssen dabei nicht auf die Existenz von Prozessen anderer
+Anwendungen achten.
+
+Ein Linux OS teilt sich den Satz an Netzwerk Interfaces, Routing Tabellen und Regeln. Mit \textbf{Netzwerk Namespaces} können separate Tabellen und Regeln definierte werden.
+Ein Container privilegierten Zugriff auf die Sockets anderer Container. Interaktion kann über geöffnete Ports und HTTPS stattfinden.
+Aus Netzwerksicht sitzen alle Container auf Netzwerk Bridges. % TODO what are Netzwerk bridge, was Sicher??
+
+\textbf{Mount namespaces} isolierten die Sicht auf Mount Punkte. Es zeigte sich, dass Isolation in manchen Erfahrungen sogar zu hoch war, weswegen geteilte Unterbäume (shared subtrees) entwickelt wurden. Über diese können Mount Events über Namespaces hinweg in sogenannte slave mount Punkte propagiert werden. Mount Namespaces sind an Owner User Namespaces gebunden. Unprivilegierte Mount Namespaces sind Namespaces, bei denen sich der Owner NS vom Owner NS ihres Parent Mount Namespaces
+unterscheidet. In diesen Mount NS sind alle Mount Punkte Slave Mounts \cite{man-mount-ns}. Dieser Mechanismen eignet sich gut zur Reduzierung der Container-Privilegien. In einem Container sollten in Normalfall keine weiteren Mount Namespaces notwendig sein.
+
+\textbf{Control groups} (cgroups) ermöglichen es, die nutzbaren Ressourcen (CPU, Speicher etc.) für einzelne Gruppen an Prozessen zu limitieren \cite{man-cgroups}. Dies ist eine wichtige Maßnahme, um Denial of Service Angriffe zu verhindern \cite{lxc-sec}. Ohne diese Limits könnten über eine Vielzahl an Requests an einen Web Server die Ressourcen des Hosts aufgebraucht werden, was zum Absturz potenziell sehr vieler Services führen würde.
+Cgroup Namespaces isolieren die Sicht auf die cgroups eines Prozesses. Diese scheinen jedoch nicht wichtig für die Funktionsweise von Containern zu sein.
+
+Der wohl kritischste Punkt an der Container-Sicherheit ist die Verwendung von \textbf{User Namespaces}. Jede UID in einem Namespace ist auf eine UID im darüberliegenden Namespace gemappt. Dies eliminiert den Verwaltungsaufwand, mehrere Services und deren verwendete UIDs miteinander zu vereinbaren.
+Jeder Namespace hat standardmäßig die normale UID Range von 0 bis 65535. In einem User Namespace können Prozesse also die effektive UID 0 und damit aus Kernelsicht \texttt{root} Rechte haben, obwohl sie von unprivilegierten Nutzern (UID $\neq 0$) abstammen. Ein unprivilegierter Nutzer kann einen Namespace erstellen. In diesem hat er das volle Set an Kernel Capabilities. Der Effekt dieser Capabilities bezieht jedoch nur auf die Resourcen, über die der User Namespace verfügt. Capabilities, die
+nicht von solchen Ressourcen abhängen, wie zum Beispiel die Systemzeit, lassen sich nicht mit den dadurch erlangten Capabilities ändern \cite{man-user-ns}.
+Dieser Aspekt kann zur Privilege Escalation ausgenutzt werden, sobald es aufseiten des Kernels eine Schwachstelle gibt, die dem Umstand der erhöten Privilegien entspringt. Kernel Entwickler mögen weniger auf Sicherheitsaspekte Bedacht sein, wenn einer User \texttt{root} ist \cite{kerrisk-anatomy}. Dies zeigte
+sich in Form mehrerer Schwachstellen \cite{cve-2013-1858, cve-2014-5206, cve-2014-5207, cve-2017-1000111}. Dies ist der Grund, weshalb manche Distributionen User Namespaces nur für privilegierte Nutzer unterstützen. Es gibt eine \texttt{sysctl} Konfiguration \texttt{kernel.unprivileged\_userns\_clone}, die es auch unprivilegierten Nutzern erlaubt, Namespaces zu erstellen. Diese sollte deaktiviert sein, um die beschriebene Gefahr der Privilege Escalation
+zu vermeiden. Auf Ubuntu Server 19.10 ist sie per Default aktiviert.
+
+Um die Sicherheit vor Privilege Escalation durch aus User Namespace Sandboxen zu wahren, ist es wichtig, dass die UID 0 in der Sandbox auf eine unprivilegierte UID außerhalb gemappt wird \cite{lxc-sec, stgraber-unpriv}. Ist sie auf die \texttt{root} UID 0 auf dem Host gemappt spricht man von privilegierten Containern. Diese sind nicht sicher, da ein Sandbox-Ausbruch einer System-Kompromitierung gleichkommt.
+Bei unprivilegierten Containern hingegen findet sich ein Angreifer bei einem erfolgreichen Ausbruch als einfacher Nutzer. Im diesem Falle führen User Namespaces keine zusätzliche Unsicherheit ein. Die LXC Verfasser nenn diesen Modus \textit{root-safe} und gehen sogar so weit, zu sagen, dass es Seccomp, Capabilities und AppArmor/SELinux innerhalb des Containers unnötig macht \cite{lxc-sec}. Die UID/GID Mappings befinden sich in \texttt{/etc/subuid, /etc/subgid}. Sie zeigen auf welchen
+Zahlenbereich auf dem Host die UID's im Namespace gemappt werden. Dabei wird eine untere Grenze sowie eine Länge des Bereichs definiert:
+
+\begin{lstlisting}
+$ cat /etc/subuid
+otter:100000:65536
+dachs:165536:65536
+\end{lstlisting}
+
+Die UID im User Namespace \texttt{otter} entspricht damit der UID 100000 in dessen Parent Namespace. Die Mappings können über das \texttt{newuidmap} Kommandozeilentool konfiguriert werden. Container Runtimes wie LXC und Docker bieten für diese Einstellung Konfigurationsdateien. Dabei ist es wichtig zu beachten, dass sich die UID Bereiche nicht überlappen. Die Ressourcenlimits sind über \texttt{ulimit} an eine Kernel UID gebunden. Wenn sich zwei Namespaces die selbe Kernel UID teilen,
+so kann ein Container zu einem DoS auf einem anderen Service führen \cite{lxc-sec}.
+
+Unprivilegierte Container haben natürlich nicht alle Rechte, die ein privilegierte hätte. Doch in den meisten Fällen braucht root im Container bei Weitem nicht die Berechtigungen typischer root Prozesse. SSH daemon, cron daemon und Netzwerk Mangement finden außerhalb des Containers statt. So kann ein Container in den meisten Fällen mit stark reduzierten Capabilities funktionieren. Docker entfernt standardmäßig zum Beispiel \texttt{mount}, \texttt{mknod}, \texttt{chown},
+\texttt{chattr}, sowie das Laden von Kernel Modulen und den Zugriff auf Raw Sockets \cite{docker-sec}.
+
+\begin{lstlisting}[caption={Ein Beispiel Dockerfile für einen NGINX Web Server der nicht als root im Container läuft}]
+addgroup --system --gid 101 nginx 
+adduser --system --disabled-login --ingroup nginx --no-create-home --home /nonexistent --shell /bin/false --uid 101 nginx
+...
+USER 101
+CMD ["nginx"]
+\end{lstlisting}
+
+Die Capabilities können nach einem prinzipiellen Setup innerhalb des Kernels noch weiter reduziert werden, indem wie bereits in Abschnitt \ref{sec:service-acc} beschrieben separate User für Services erstellt werden. Ein Angreifer der einen Service Prozess übernimmt müsste dann zuerst  zu \texttt{root} im Container eskalieren.  
 
