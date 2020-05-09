@@ -97,6 +97,14 @@
 \usepackage{bookmark}
 \usepackage[nonumberlist,toc]{glossaries}
 
+% Check Marks 
+\usepackage{pifont}% http://ctan.org/pkg/pifont
+\newcommand{\cmark}{\ding{51}}%
+\newcommand{\xmark}{\ding{55}}%
+\newcommand{\checkb}{\rlap{$\square$}{\raisebox{2pt}{\large\hspace{1pt}\cmark}}\hspace{-2.5pt}}
+\newcommand{\nocheckb}{$\square$}
+
+
 
 % Generate glossary
 \makeglossaries{}

@@ -118,7 +118,6 @@ Beim Ausführen einer Datei erhält der resultierende Prozess im Normalfall die 
 Bits und Nutzergruppen. Diese Eigenschaften wird des Weiteren benutzt, um erlangte erhöhte Privilegien auf einem System über Neustarts hinweg zu persistieren \cite{attack-setuid}. Aus den genannten Gründen, sollte die Zahl der existierenden Setuid Anwendungen auf ein Minimum reduziert werden. Dies kann erreicht werden, indem einer Anwendung bestimmte Rechte (Capabilities) zu privilegierten Operationen eingeräumt werden, die normalerweise nur \texttt{root} in der Lage ist
 auszuführen. 
 
-%,caption={Zeitreise mittels \texttt{stime} und der Versuch die Privilegien auf \texttt{root} auszuweiten}]
 \begin{lstlisting}[language=c,label=lst:timetravel]
 dest = now - 60;
 ret = stime(&dest);
@@ -204,15 +203,17 @@ void main() {
 
 
 \subsubsection{Least Privilege für Memory Pages}
+\label{sec:mem-sec}
 
-PaX löst dieses Problem indem es Teile des Speicher, die durch den Nutzer modifiziert werden können, als nicht ausführbar markiert. Speicher ist also entweder schreibbar oder ausführbar ($W \oplus X$). Dies entspricht einer Separierung der Privilegien auf Höhe des Speichers. Dies kann auf Hardware umgesetzt oder auf Software-Ebene mit Performance-Overhead emuliert werden.
+PaX löst dieses Problem indem es Teile des Speicher, die durch den Nutzer modifiziert werden können, als nicht ausführbar markiert \cite{schacham_2004}. Speicher ist also entweder schreibbar oder ausführbar ($W \oplus X$). Dies entspricht einer Separierung der Privilegien auf Höhe des Speichers. Dies kann auf Hardware umgesetzt oder auf Software-Ebene mit Performance-Overhead emuliert werden.
+
 Angreifer können Code dadurch nicht mehr injizieren, sondern müssen auf geladenen Library Code (wie \texttt{libc}) zurückgreifen. Bei einem \textit{return-to-libc}-Angriff überschreibt ein Angreifer den Stack mit einer Return-Addresse, die auf eine C Funktion zeigt, und andere Teil des Stacks, die als Argumente intepretiert werden. \texttt{libc} enthält die Wrapper für die Linux System Call API und bietet damit alle Freiheiten zur Interaktion mit dem Kernel. Der $W \oplus X$ Ansatz bietet hiergegen also keine Sicherheit. Damit eine Angreiferin den Kontrollfluss auf eine \texttt{libc}-Funktion lenken kann, muss sie die virtuelle Addresse dieser Funktion kennen.
 % TODO return-into-libc attack: solar designer (Alexander Peslyak) https://seclists.org/bugtraq/1997/Aug/63
 
 \subsubsection{Address Space Layout Randomization}
 \label{sec:aslr}
 
-Ist der Addressbereich zufällig angeordnet, klappt ein solcher Angriff also nur im seltenen Fall, in dem zufällig die richtige Addresse gewählt wird. Dieser Ansatz nennt sich Address Space Layout Randomization (ASLR). PaX randomisiert separat die Addressen dreier relevanter Bereiche: Executable, Mapped und Stack\footnote{Der `Executable' Bereich  enthält den
+Ist der Addressbereich zufällig angeordnet, klappt ein solcher Angriff nur im seltenen Fall, in dem zufällig die richtige Addresse gewählt wird. Dieser Ansatz nennt sich Address Space Layout Randomization (ASLR). PaX randomisiert separat die Addressen dreier relevanter Bereiche: Executable, Mapped und Stack\footnote{Der `Executable' Bereich  enthält den
 Code und Daten. Der `Mapped' Bereich enthält den Heap, dynamische Libraries, Thread Stacks und geteilten Speicher.} \cite{pax-aslr}.
 Ein Angreifer hat daraufhin nur noch die Möglichkeit, die gewünschte Addresse zu erraten oder die Attacke über viele Versuche zu erzwingen (Brute Force). Ein falscher Versuch versetzt den gekaperten Prozess im Optimalfall in einem Ausnahmezustand (z.B. Crash). Dies sollte als Angriffsindikator registriert werden. Je nachdem wie lange das Wiederherstellen des
 angreifbaren Zustandes benötigt und wie groß der Addressraum ist, sind Brute-Force-Angriffe noch praktikabel. Auf 32-bit Architekturen kann PaX den `Mapped'-Bereich nur zu 16 Bit randomisieren. Das bedeutet, das im Durchschnitt nur 32,768 Versuche notwendig sind um die richtige Basis-Addresse dieses Bereichs zu ermitteln. Bei einem \texttt{fork} wird das zufälligte Angeordnete Speicherlayout beibehalten -- im Gegensatz zu einem Context Switch via \texttt{execve}. Speziell Web Server,
@@ -265,34 +266,98 @@ Es gibt noch weitere bekannte Memory Corruption Schwachstellen und Mitigationste
 % TODO Diese Optionen können nicht systemweit aktiviert werden, sondern müssen in jedem Build und für jedes Package separat konfiguriert und geprüft werden.
 
 
-
 \section{Sandboxing}
 
-Ein Drive-by Compromise ist eine Attacke, bei der Prozess des Browsers auf dem Rechner des Nutzer über den Besuch einer Webseite und das Ausnutzen einer Schwachstelle übernommen wird. Nebem dem Browser sind Office-Anwendungen und bekannte Third-Party-Anwendungen ein beliebeter Angriffsvektor. Da diese Anwendungen weit verbreitet und Nutzer mit deren Handhabung vertraut sind, bieten diese ein gutes Einstiegsfenster für Angreifer, die +ber Spearfishing Links oder Dokumente an ihre Opfer
+Ein Drive-by Compromise ist eine Attacke, bei der Prozess des Browsers auf dem Rechner des Nutzer über den Besuch einer Webseite und das Ausnutzen einer Schwachstelle übernommen wird. Nebem dem Browser sind Office-Anwendungen und bekannte Third-Party-Anwendungen ein beliebeter Angriffsvektor. Da diese Anwendungen weit verbreitet und Nutzer mit deren Handhabung vertraut sind, bieten diese ein gutes Einstiegsfenster für Angreifer, die über Spearfishing Links oder Dokumente an ihre Opfer
 versenden. Das schlichte Öffnen dieser kann dabei bereits genügen, um dem Angreifer Arbitrary Code Execution zu verschaffen. Die genannten Anwendungen sind groß, komplex und werden kontinuerlich mit neuen Featuren weiterentwickelt. Aus diesen Gründen werden sie vielleicht sogar nie fehlerfrei sein. Die Verwendung dieser ist für viele Unternehmen jedoch geschäftskritisch. Der einzige Weg trotz der Verwendung solcher Anwendungen, die Sicherheit zu wahren ist es, diese bestmöglich
 `abzuschirmen', damit die gennanten Ausbrüche möglichst effektlos bleiben.
 
-Die bereits beschrieben Separierung und Minimierung von Privilegien ist ein wichtiger Bestandteil dieses `Sandboxing'-Ansatzes. Ist ein Angreifer in der Lage, aus dem abgeschirmten Bereich auszubrechen sollte er dennoch so wenig Privilegien wie möglich haben.
+Es existieren bereits eine Menge an Ansätzen zum Sandboxing von Anwendungen in einem Linux OS (siehe Tabelle \ref{tab:sandbox-apps}).
+Es gibt Betriebbsysteme, die auf dem Prinzip des Sandboxing basieren. QubesOS kapselt so viel wie möglich von einander ab um die Folgen eines Compromise einer Komponente maximal zu reduzieren \cite{qubes}.
+Die bereits beschriebene Separierung und Minimierung von Privilegien ist ein wichtiger Bestandteil dieses `Sandboxing'-Ansatzes. Ist ein Angreifer in der Lage, aus dem abgeschirmten Bereich auszubrechen sollte er dennoch so wenig Privilegien wie möglich haben.
 
-Hier sollen zwei Sandboxing-Ansätze vorgestellt werden: 
+\begin{table}[]
+\centering
+\resizebox{0.95\textwidth}{!}{%
+\begin{tabular}{|l|c|c|c|c|c|c|c|c|}
+\hline
+\textbf{Sandbox}                               & \textbf{Seccomp}  & \textbf{Namespaces}   & \textbf{HW-Virt.} & \textbf{MAC}      & \textbf{Capabilities}  & \textbf{chroot}    & \textbf{ulimit}   & \textbf{cgroups}  \\ \hline
+firejail           \cite{firejail}             & \checkb            & \checkb                & \nocheckb          & \checkb        & \checkb                & \checkb            & \nocheckb          & \nocheckb          \\ \hline
+bubblewrap         \cite{bubblewrap}           & \checkb            & \checkb                & \nocheckb          & \nocheckb      & \checkb                & \checkb            & \nocheckb          & \nocheckb          \\ \hline
+LXC                \cite{lxc}                  & \checkb            & \checkb                & \nocheckb          & \checkb        & \checkb                & \nocheckb          & \checkb            & \checkb            \\ \hline
+Docker             \cite{docker}               & \checkb            & \checkb                & \nocheckb          & \checkb        & \checkb                & \nocheckb          & \checkb            & \checkb            \\ \hline
+SELinux Sandbox    \cite{selinux-sandbox}      & \nocheckb          & \checkb                & \nocheckb          & \checkb        & \checkb                & \nocheckb          & \nocheckb          & \checkb            \\ \hline
+libvirt-sandbox    \cite{libvirt-sandbox}      & \nocheckb          & \checkb                & \checkb            & \checkb        & \nocheckb              & \nocheckb          & \nocheckb          & \nocheckb          \\ \hline
+Cuckoo             \cite{cuckoo}               & \nocheckb          & \nocheckb              & \checkb            & \nocheckb      & \nocheckb              & \nocheckb          & \nocheckb          & \nocheckb          \\ \hline
+QubesOS            \cite{qubes}                & \nocheckb          & \nocheckb              & \checkb            & \nocheckb      & \nocheckb              & \nocheckb          & \nocheckb          & \nocheckb          \\ \hline
+mbox               \cite{mbox}                 & \checkb            & \nocheckb              & \nocheckb          & \nocheckb      & \nocheckb              & \nocheckb          & \nocheckb          & \nocheckb          \\ \hline
+\end{tabular}%
+}
+\caption{Sandbox Anwendungen für Linux und deren eingesetzte Komponenten. Diese Auflistung ist weder in den aufgeführten Anwendungen, noch in deren Komponenten erschöpfend.}
+\label{tab:sandbox-apps}
+\end{table}
+% TODO runC
+% TODO Chromium, Firefox
+% TODO systemd-nspawn
+% TODO Solaris Zones
+
+
+Hier sollen zwei Sandboxing-Ansätze näher vorgestellt werden: 
 
 \begin{itemize}
-    \item Linux Sandboxing basierend auf Seccomp, cgroups und Namespaces
-    \item Sandboxing basierend auf virtuellen Maschinen
+    \item Hardware Virtualisierung
+    \item OS-Level Virtualisierung (Namespaces, Seccomp, Capabilities und cgroups)
 \end{itemize}
 
-\subsection{Linux Sandboxes}
+\subsection{Hardware Virtualisierung}
 
-Chromium und Firefox setzen primär auf Restriktion von System Calls über Seccomp, Ressourcenbeschränkung über cgroups sowie Namespaces \cite{firefox-sandbox, chromium-sandbox}. Firejail ist eine Command Line Tool mit dem jegliche Programme durch dieselben Techniken abgekapselt werden können \cite{firejail}.
+Bei der Hardware Virtualisierung werden virtuelle Maschinen erstellt. Diese entsprechen in der Benutzung der eines separaten Computers mit dedizierten Hardware Ressourcen sowie einem Betriebssystem. Die Wahl des Betriebssystems ist komplett unabhängig vom Host System. Der Host fungiert in diesen Fällen als Virtual Machine Monitor (VMM; Hypervisor) \cite{uhlig-intel}. Er verwaltet den zugriff auf Ressourcen und bietet dafür eine Virtual Operating Platform als Schnittstelle.
+Hypervisor `ersten' Typs werden auch Bare-Metal-Hypervisor genannt und laufen direkt auf der Hardware des Hosts. Hypervisor `zweiten' Grades hingegen sind Anwendungen in einem Betriebssystem. Es gibt Hypervisor, die hybride Form dieser beiden Typen darstellen, indem sie den Kernel über Kernel-Module zu einem Hypervisor erweitern.
+Um ein gehärtetes Betriebssystemen zu erreichen sollte also entweder ein Typ-2-Hypervisor unter hoher Absicherung verwendet werden (z.B.\ \texttt{libvirt-sandbox} \cite{libvirt-sandbox}), oder ein Betriebssystem auf der Basis eines Typ-1-Hypervisor definiert werden (z.B.\ QubesOS \cite{qubes}). 
+
+Es wird des Weiteren zwischen voller Virtualisierung und Paravirtualisierung unterschieden \cite{xen}. Bei der vollen Virtualisierung müssen Betriebssysteme nicht angepasst werden, da hier die Hardware simuliert wird. Paravirtualisierung bot vor der Entwicklung von Hardware-Virtualisierung eine Leistungsverbesserung, da hier nicht jede Instruktion auf der simulierten Hardware, sondern bestimmte Aufgaben auf der tatsächlichen Hardware ausgeführt werden. Dies löste manche Probleme, die
+dadurch aufkamen, dass Betriebssysteme nicht mehr auf dem Hardware-Privilege-Ring liefen, für die sie ursprünglich geschrieben wurden \cite{uhlig-intel}. Erst durch den Fortschritte der Hardware Virtualisierung (Intel VT-x, AMD-V) wird dieser Problem jedoch richtig addressiert. Die CPU Hersteller haben dafür zwei unterschiedliche Modi eingeführt, zwischen denen bei der Virtualisierung gewechselt wird. Der Hypervisor läuft auf im `Root'-Modus auf allen vier Privilegien-Ringen. Das Gast-OS
+und deren Anwendungen laufen im `Non-Root'-Modus wieder auf den vorgesehenen Ringen 0 bzw. 3 \cite{uhlig-intel}. Um Instruktionen auszuführen und Ressourcen anzufordern stellt das Gast-OS einen sog.\ ``Hypercall'' an den Hypervisor. Dieses Vorgehen erfordert wenige bis keine Änderungen aufseiten des Betriebssystems. 
+
+Die Vorteile von Virtualisierung sind vielseitig. Es ermöglicht homogenere und dadurch leichter zu wartende Platformen durch Konsolidierung. Es vereinfacht die Migration und den Betrieb\footnote{insb. Load Balancing und Fehlervorhersage} von Systemen \cite{uhlig-intel}. Der Aspekt, der für die Härtung von Betriebssystemen jedoch relevant ist, ist der der Isolation. Durch das `Einsperren' von unvertraulichen Anwendungen kann ein Eindringen verhindert werden, ein fehler-tolerantes System
+entwickelt werden \cite{terra} oder ein Angriff durch Logging nachvollzogen werden \cite{revirt}.
+
+Der Einsatz von Hardware Virtualisierung zur Härtung kann wie beschrieben helfen, jedoch auch neue Schwachstellen einführen.
+Ein Ausbrauch aus einer Gastmaschine ermöglicht lokale Angriffe auf andere Gastmaschinen, die ohne Virtualisierung über physisches Netzwerk getrennt wären \cite{svirt}. Die Verlächslichkeit des Hypervisor ist deshalb kritisch.
+Werden mehrere virtuelle Maschinen auf einem Desktop verwendet, so stellen vor allem ein geteiltes Clipboard und Keylogging potenzielle Gefahren dar \cite{reuben}.
+Es sollten illegale Änderungen am Speicher verhindert werden und nur authorisiert Code ausgeführt werden. Das Verhalten von Gast OS kann über Kontrollflussanalyse und definierten Policies beobachtet und dadurch Eingriffe verhindert werden \cite{christo}.
+
+\subsubsection{QubesOS}
+
+QubesOS ist der Versuch ein `Security-first' Betriebssystem über den Ansatz der Isolation von so vielen Komponenten wie möglich zu erreichen \cite{qubes}. Die Kompromittierung einer einzelnen soll nie zum Verlust der Integrität einer anderen führen.
+Es baut auf den schmalen quelloffenen Xen Typ-1-Hypervisor, den es über $W \oplus X$ und ASLR absichert (siehe Abschnitt \ref{sec:mem-sec}).
+
+Es wird versucht die größe der Trusted Computing Base (TCB) zu minimieren. Die Netzwerk- und Speicherdomäne werden dafür in separate virtuelle Maschinen verlagert. Des Weiteren lassen sich Anwendungen nach bestimmten realistischen
+Bereichen in separaten VMs betreiben. Die Webseite für das Online-Banking muss nicht im selben Browser besucht werden, der auch für soziale Netzwerk benutzt wird. Pro Bereich lässt sich der Netzwerk Traffic auf bestimmte Ziele beschränken. Geschäftsbezogene Dokumente sollten von privaten separiert sein.
+
+Die Nutzbarkeit des Multi-VM-Ansatzes ist von einer üblichen GUI, einem geteilten Clipboard, zentralen Updates und vertretbarem Speicheraufwand abhängig. Zentrale Updates werden über ein geteiltes signiertes read-only Block Device für \texttt{/usr, /bin} und ähnliche Verzeichnisse implementiert. Die Einfüge-Operation für das geteilte Clipboard wird dadurch abgesichert, dass sie nur von der TCB initialisiert werden kann. Das Teilen von Dateien über zwei Anwendungs VMs wird über
+Verschlüsselung und den vertraulichen Xen Store gesichert. 
+
+Die Netzwerk VM beinhaltet Treiber und Protokolle, die mit hohen Privilegien kommunizieren. Sie bietet über Xen sichere virtuelle Netzwerk Interfaces für jede Anwendungs VM. Die Storage VM soliert Attacken über entfernbare Geräte. Um die Vertraluchkeit und Integrität zu wahren kann es das geteilte Dateisystem nicht ändern und die Dateien einer Anwendungs-VM weder lesen noch schreiben.
+
+
+
+\subsection{OS-Level Virtualisierung}
+
+Virtualisierung auf OS-Ebene ist nicht mit der Verwendung eines Typ-2-Hypervisors zu verwechseln. Stattdessen werden Funktionen des Kernels benutzt, um ein vergleichbares Niveau an Isolation herzustellen.
+Das Ziel ist es auf Anwendungsebene eine Umgebung herzustellen, die so nah wie möglich an der einer virtuellen Maschine ist, ohne den Overhead eines separaten Kernels und der Hardware Emulation zu haben \cite{lxc}.
+
+Chromium und Firefox setzen in ihrem Sandboxing-Ansatz primär auf Restriktion von System Calls über Seccomp, Ressourcenbeschränkung über cgroups sowie Namespaces \cite{firefox-sandbox, chromium-sandbox}. 
 Vor allem bei den Auswahl an Tools zur Virtualisierung auf Betriebssystemebene, sticht die Ähnlichkeit in der Nutzung dieser Linux Funktionen heraus. Zuerst OpenVZ \cite{openvz}, dann LXC
-\cite{lxc}, später Docker \cite{docker} und letztendlich runc \cite{runc} bauen auf Kernel namespaces, AppArmor oder SELinux, Seccomp, Chroot `jails', Capabilities und cgroups. Auf diese Weise soll auf Anwendungsebene eine Umgebung hergestellt werden, die so nah wie möglich an der einer virtuellen Maschine ist, ohne den Overhead eines separaten Kernels und der Hardware Emulation zu haben \cite{lxc}.
-Mittlerweile existieren verschiedene Bibliotheken, um das Erstellen von Containern, also das Festlegen von Capabilities, das Verwalten von Namespaces, Filtern von System Calls etc. zu vereinfachen und zu standardisieren \cite{libvirt-lxc, systemd-nspawn, runc-libcontainer}.
+\cite{lxc}, später Docker \cite{docker} und letztendlich runc \cite{runc} bauen auf Kernel namespaces, AppArmor oder SELinux, Seccomp, Chroot `jails', Capabilities und cgroups. 
+Tabelle \ref{tab:sandbox-apps} zeigt wie stark diese Funktionalitäten auch bei anderen Sandboxing Tools Verwendung findet.
 
 Auf Seccomp, Capabilities und AppArmor wurde bereits eingegangen. Diese werden
 benutzt, um die Wahrscheinlichkeit einer Privilege Escalation im Falle eines Container Escapes zu reduzieren und Minimierung dafür die Oberfläche des Kernels und des File Systems. In diesem Abschnitt soll daher näher auf chroot, Namespaces, sowie cgroups eingegangen werden.
 
-Linux Namespaces sind als leichtgewichtige Variante zu Virtualisierung ohne Hypervisor zu sehen. Sie funktionieren ähnlich zur Funktionalität von \texttt{chroot}. Dieses kann benutzt werden, um das root Verzeichnis für den aktuellen Prozess zu ändern . Für diesen Prozess sind im Nachhinein Dateien eines Verzeichnisses das über dem spezifizierten liegt unsichtbar. Es ist jedoch nicht als Sandbox-Mechanismus gedacht. Aus einer chroot Sandbox kann
-durch simples Wechseln und Bewegen von Verzeichnissen ausgebrochen werden \cite{man-chroot}. Alleinstehend genügt dies also nicht für einen effektiven Sandbox-Mechanismus.
+Linux Namespaces sind als leichtgewichtige Variante zu Virtualisierung ohne Hypervisor zu sehen. Sie funktionieren ähnlich zur Funktionalität von \texttt{chroot}. Dieses kann benutzt werden, um das root Verzeichnis für den aktuellen Prozess zu ändern. Für diesen Prozess sind im Nachhinein Dateien eines Verzeichnisses das über dem spezifizierten liegt unsichtbar. Es ist jedoch nicht als Sandbox-Mechanismus gedacht. Aus einer chroot Sandbox kann
+durch simples Wechseln und Bewegen von Verzeichnissen oder ein zweites \texttt{chroot} ausgebrochen werden \cite{man-chroot, second-chroot}. Alleinstehend genügt also nicht für einen effektiven Sandbox-Mechanismus. Wenn sie verwendet werden, sollte darauf geachtet werden das Privilegien sofort nach dem \texttt{chroot} reduziert werden und dass das Verzeichnis keine Schwachstellen enthält, die eine Privilege Escalation ermöglichen (z.B. setuid-root Binaries) \cite{second-chroot}.
+Bubblewrap verbindet die Nutzung von chroot mit der Prozess Eigenschaft \texttt{PR\_SET\_NO\_NEW\_PRIVS} \cite{git-bubblewrap}.
 
 Auf dieselbe Art und Weise isoliert ein Linux Namespace zum Beispiel Mount Punkte. Änderungen an den Mount Punkten eines Namespace
 werden nicht auf anderen repliziert \cite{man-mount-ns}.
@@ -334,8 +399,9 @@ Cgroup Namespaces isolieren die Sicht auf die cgroups eines Prozesses. Diese sch
 Der wohl kritischste Punkt an der Container-Sicherheit ist die Verwendung von \textbf{User Namespaces}. Jede UID in einem Namespace ist auf eine UID im darüberliegenden Namespace gemappt. Dies eliminiert den Verwaltungsaufwand, mehrere Services und deren verwendete UIDs miteinander zu vereinbaren.
 Jeder Namespace hat standardmäßig die normale UID Range von 0 bis 65535. In einem User Namespace können Prozesse also die effektive UID 0 und damit aus Kernelsicht \texttt{root} Rechte haben, obwohl sie von unprivilegierten Nutzern (UID $\neq 0$) abstammen. Ein unprivilegierter Nutzer kann einen Namespace erstellen. In diesem hat er das volle Set an Kernel Capabilities. Der Effekt dieser Capabilities bezieht jedoch nur auf die Resourcen, über die der User Namespace verfügt. Capabilities, die
 nicht von solchen Ressourcen abhängen, wie zum Beispiel die Systemzeit, lassen sich nicht mit den dadurch erlangten Capabilities ändern \cite{man-user-ns}.
-Dieser Aspekt kann zur Privilege Escalation ausgenutzt werden, sobald es aufseiten des Kernels eine Schwachstelle gibt, die dem Umstand der erhöten Privilegien entspringt. Kernel Entwickler mögen weniger auf Sicherheitsaspekte Bedacht sein, wenn einer User \texttt{root} ist \cite{kerrisk-anatomy}. Dies zeigte
-sich in Form mehrerer Schwachstellen \cite{cve-2013-1858, cve-2014-5206, cve-2014-5207, cve-2017-1000111}. Dies ist der Grund, weshalb manche Distributionen User Namespaces nur für privilegierte Nutzer unterstützen. Es gibt eine \texttt{sysctl} Konfiguration \texttt{kernel.unprivileged\_userns\_clone}, die es auch unprivilegierten Nutzern erlaubt, Namespaces zu erstellen. Diese sollte deaktiviert sein, um die beschriebene Gefahr der Privilege Escalation
+Dieser Aspekt kann zur Privilege Escalation ausgenutzt werden, sobald es aufseiten des Kernels eine Schwachstelle gibt, die dem Umstand der erhöten Privilegien entspringt. Die erhöhten Capabilities verstärken Probleme durch Schwachstellen im Kernel Code, zum Beispiel durch das Erlangen von \texttt{CAP\_NET\_ADMIN}, was unprivilegierten Nutzern das Programmieren von iptables erlaubt. \cite{lwn-controlling-access}. Kernel Entwickler mögen weniger auf Sicherheitsaspekte Bedacht sein, wenn einer
+User \texttt{root} Rechte hat \cite{kerrisk-anatomy}. Dies zeigte
+sich in Form mehrerer Schwachstellen \cite{cve-2013-1858, cve-2014-5206, cve-2014-5207, cve-2016-3135, cve-2017-1000111}. Das ist der Grund, weshalb manche Distributionen User Namespaces nur für privilegierte Nutzer unterstützen. Es gibt eine \texttt{sysctl} Konfiguration \texttt{kernel.unprivileged\_userns\_clone}, die es auch unprivilegierten Nutzern erlaubt, Namespaces zu erstellen. Diese sollte deaktiviert sein, um die beschriebene Gefahr der Privilege Escalation
 zu vermeiden. Auf Ubuntu Server 19.10 ist sie per Default aktiviert.
 
 Um die Sicherheit vor Privilege Escalation durch aus User Namespace Sandboxen zu wahren, ist es wichtig, dass die UID 0 in der Sandbox auf eine unprivilegierte UID außerhalb gemappt wird \cite{lxc-sec, stgraber-unpriv}. Ist sie auf die \texttt{root} UID 0 auf dem Host gemappt spricht man von privilegierten Containern. Diese sind nicht sicher, da ein Sandbox-Ausbruch einer System-Kompromitierung gleichkommt.
@@ -362,5 +428,7 @@ USER 101
 CMD ["nginx"]
 \end{lstlisting}
 
-Die Capabilities können nach einem prinzipiellen Setup innerhalb des Kernels noch weiter reduziert werden, indem wie bereits in Abschnitt \ref{sec:service-acc} beschrieben separate User für Services erstellt werden. Ein Angreifer der einen Service Prozess übernimmt müsste dann zuerst  zu \texttt{root} im Container eskalieren.  
+Die Capabilities können nach einem prinzipiellen Setup innerhalb des Kernels noch weiter reduziert werden, indem wie bereits in Abschnitt \ref{sec:service-acc} beschrieben separate User für Services erstellt werden. Ein Angreifer der einen Service Prozess übernimmt müsste dann zuerst im Container zu \texttt{root} eskalieren.  
+
+
 
