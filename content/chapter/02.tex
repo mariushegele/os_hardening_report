@@ -151,7 +151,9 @@ $ ll time_travel*
 -rwsrwxr-x 1 root  root  17080 Apr 29 09:08 time_travel_suid*
 \end{lstlisting}
 
-Das \texttt{s} auf dem Setuid-Binary indiziert das gesetzte Setuid-Bit. Eine Ausführung des SUID-Binary führt zu Privilege Escalation nach `Ausnutzen' der gemockten Vulnerability und damit zum Verlust der Vertraulichkeit auf einer sonst unlesbaren Datei. Die Setuid Funktionalität kann per Block Device mithilfe von \texttt{mount -o nosuid} deaktiviert werden. Doch dies verbietet auch das Zuweisen von Capabilities. Dies kann also nicht für alle Dateisysteme eine Lösung sein. Stattdessen sollte
+Das \texttt{s} auf dem Setuid-Binary indiziert das gesetzte Setuid-Bit. Eine Ausführung des SUID-Binary führt zu Privilege Escalation nach `Ausnutzen' der gemockten Vulnerability und damit zum Verlust der Vertraulichkeit auf einer sonst unlesbaren Datei.
+
+Die Setuid Funktionalität kann per Block Device mithilfe von \texttt{mount -o nosuid} deaktiviert werden. Doch dies verbietet auch das Zuweisen von Capabilities. Dies kann also nicht für alle Dateisysteme eine Lösung sein. Stattdessen sollte
 die Existenz von Setuid-Binaries beobachtet und über Capabilities minimiert werden.
 
 \subsection{Mandatory Access Control}
@@ -258,9 +260,8 @@ Wird es auf \texttt{1} gesetzt, so finden Checks nur in der Compile Time statt. 
 %NULL ptr deref (Spengler)
 %libsafe
 
-% GOT Overwrite Attacks
-  % TODO RELRO ld -z relro https://systemoverlord.com/2017/03/19/got-and-plt-for-pwning.html
-  % TODO BINDNOW ld -z now
+GOT Overwrite Attacks ist eine Methode, bei der ein Angreifer versucht, den Kontrollfluss des Programmes über die Global Offset Table (GOT) zu manipulieren. In dynamische gelinkten Libraries werden die Addressen für Symbole (z.B. Funktionen) nicht in der Compile-Zeit, sondern erst zur Laufzeit bestimmt. Beim ersten Aufruf einer Methode wird in der `Relocation' durch den Linker die Addresse bestimmt und in die GOT geschrieben. Nun sind standardmäßig die Teile der GOT, in die dabei geschrieben werden schreibbar. 
+Verwendet man die `Relocation Read-Only` (RELRO) Flag `ld -z relro` in Kombination mit der BINDNOW Flag `ld -z now`, bestimmt der Linker alle Symbole zur Link-Zeit vor der Laufzeit und makriert danach alle Teile der GOT als read-only. \cite{relro}
 
 Es gibt noch weitere bekannte Memory Corruption Schwachstellen und Mitigationstechniken über GCC Optionen. Diese können über das \texttt{dpkg-buidlflags} eingefügt werden. Für unvertrauenswürdige Anwendungen sollte \texttt{DEB\_BUILD\_MAINT\_OPTIONS = hardening=+all} gesetzt werden, um Position Independent Execution und BINDNOW zu aktivieren. Eine Auskunft darüber ob installierte Binaries gehärtet sind bietet \texttt{hardening-check} \cite{debian-hardening}. 
 % TODO Diese Optionen können nicht systemweit aktiviert werden, sondern müssen in jedem Build und für jedes Package separat konfiguriert und geprüft werden.
@@ -384,25 +385,87 @@ IPC                & System V IPC, POSIX Message queues & Nein
 Beim Erstellen eines hierarchischen Namespaces werden die Einstellungen des aktuellen Prozesses oder Nutzers an den `Child'-Namespace vererbt. Änderungen an diesen Kindern werden nicht in der Hierarchie nach oben propagiert \cite{man-7-ns}. 
 
 Durch \textbf{PID Namespaces} sind auf dem Host laufende Prozesse im Container nicht weiter sichtbar. Auch wenn der init Prozess im Container PID 1 hat und damit Wurzel des Prozessbaumes ist, ist er für den Host nur ein weiterer Prozess mit einer PID ungleich 1. Verschiedene Anwendungen können ihr Prozesse frei segmentieren und müssen dabei nicht auf die Existenz von Prozessen anderer
-Anwendungen achten.
+Anwendungen achten. Ähnlich zur \texttt{hidepid} mount-Option kann damit die Sicht auf fremde Prozesse reduziert und damit die Discovery-Phase erschwert werden.
 
-Ein Linux OS teilt sich den Satz an Netzwerk Interfaces, Routing Tabellen und Regeln. Mit \textbf{Netzwerk Namespaces} können separate Tabellen und Regeln definierte werden.
+\begin{lstlisting}[language=sh,caption={Isolation von Prozessen über PID namespaces}]
+$ ps axo user,pid,command
+USER       PID  COMMAND
+root         1  /sbin/init maybe-ubiquity
+root         2  [kthreadd]
+...
+
+$ unshare --fork --pid --mount-proc bash
+$ ps axo user,pid,command
+USER       PID  COMMAND
+root         1  bash
+root         8  ps aux
+\end{lstlisting}
+
+Ein Linux OS teilt sich den Satz an Netzwerk Interfaces, Routing Tabellen und Regeln. Mit \textbf{Netzwerk Namespaces} können separate Tabellen und Regeln definierte werden. Die beschränkt Sicht auf existierende Netzwerk Interfaces reduziert die Wahrscheinlichkeit, dass ein Angreifender potenzielle Vektoren entdeckt.
 Ein Container privilegierten Zugriff auf die Sockets anderer Container. Interaktion kann über geöffnete Ports und HTTPS stattfinden.
 Aus Netzwerksicht sitzen alle Container auf Netzwerk Bridges. % TODO what are Netzwerk bridge, was Sicher??
+
+\begin{lstlisting}[language=sh,basicstyle=\footnotesize\ttfamily,caption={Isolation der aktiven Internetverbindungen durch einen Netzwerk Namespace}]
+$ netstat -ant
+Active Internet connections (servers and established)
+Proto Recv-Q Send-Q Local Address   Foreign Address  State
+tcp        0      0 127.0.0.53:53   0.0.0.0:*        LISTEN
+tcp        0      0 0.0.0.0:22      0.0.0.0:*        LISTEN
+tcp        0     36 10.0.2.15:22    10.0.2.2:51046   ESTABLISHED
+tcp6       0      0 :::22           :::*             LISTEN
+
+$ unshare --net bash
+$ netstat -ant
+Active Internet connections (servers and established)
+Proto Recv-Q Send-Q Local Address   Foreign Address  State
+\end{lstlisting}
 
 \textbf{Mount namespaces} isolierten die Sicht auf Mount Punkte. Es zeigte sich, dass Isolation in manchen Erfahrungen sogar zu hoch war, weswegen geteilte Unterbäume (shared subtrees) entwickelt wurden. Über diese können Mount Events über Namespaces hinweg in sogenannte slave mount Punkte propagiert werden. Mount Namespaces sind an Owner User Namespaces gebunden. Unprivilegierte Mount Namespaces sind Namespaces, bei denen sich der Owner NS vom Owner NS ihres Parent Mount Namespaces
 unterscheidet. In diesen Mount NS sind alle Mount Punkte Slave Mounts \cite{man-mount-ns}. Dieser Mechanismen eignet sich gut zur Reduzierung der Container-Privilegien. In einem Container sollten in Normalfall keine weiteren Mount Namespaces notwendig sein.
 
 \textbf{Control groups} (cgroups) ermöglichen es, die nutzbaren Ressourcen (CPU, Speicher etc.) für einzelne Gruppen an Prozessen zu limitieren \cite{man-cgroups}. Dies ist eine wichtige Maßnahme, um Denial of Service Angriffe zu verhindern \cite{lxc-sec}. Ohne diese Limits könnten über eine Vielzahl an Requests an einen Web Server die Ressourcen des Hosts aufgebraucht werden, was zum Absturz potenziell sehr vieler Services führen würde.
+
+\begin{lstlisting}[language=sh,caption={Ressourcenlimitierung einer DoS-Attacke (durch \texttt{yes} mimiert) mithilfe von cgroups}]
+$ yes > /dev/null &
+$ ps o user,pid,pcpu,command
+USER       PID %CPU COMMAND
+root      5546  149 yes
+
+$ mkdir /sys/fs/cgroup/cpu/cg1
+$ echo 100000 > /sys/fs/cgroup/cpu/cg1/cpu.cfs_quota_us
+$ echo 1000000 > /sys/fs/cgroup/cpu/cg1/cpu.cfs_quota_us
+$ echo 5546 > /sys/fs/cgroup/cpu/cg1/cgroup.procs
+
+$ ps o user,pid,pcpu,command
+USER       PID %CPU COMMAND
+root      5546  9.8 yes
+\end{lstlisting}
+
 Cgroup Namespaces isolieren die Sicht auf die cgroups eines Prozesses. Diese scheinen jedoch nicht wichtig für die Funktionsweise von Containern zu sein.
 
 Der wohl kritischste Punkt an der Container-Sicherheit ist die Verwendung von \textbf{User Namespaces}. Jede UID in einem Namespace ist auf eine UID im darüberliegenden Namespace gemappt. Dies eliminiert den Verwaltungsaufwand, mehrere Services und deren verwendete UIDs miteinander zu vereinbaren.
+
 Jeder Namespace hat standardmäßig die normale UID Range von 0 bis 65535. In einem User Namespace können Prozesse also die effektive UID 0 und damit aus Kernelsicht \texttt{root} Rechte haben, obwohl sie von unprivilegierten Nutzern (UID $\neq 0$) abstammen. Ein unprivilegierter Nutzer kann einen Namespace erstellen. In diesem hat er das volle Set an Kernel Capabilities. Der Effekt dieser Capabilities bezieht jedoch nur auf die Resourcen, über die der User Namespace verfügt. Capabilities, die
 nicht von solchen Ressourcen abhängen, wie zum Beispiel die Systemzeit, lassen sich nicht mit den dadurch erlangten Capabilities ändern \cite{man-user-ns}.
 Dieser Aspekt kann zur Privilege Escalation ausgenutzt werden, sobald es aufseiten des Kernels eine Schwachstelle gibt, die dem Umstand der erhöten Privilegien entspringt. Die erhöhten Capabilities verstärken Probleme durch Schwachstellen im Kernel Code, zum Beispiel durch das Erlangen von \texttt{CAP\_NET\_ADMIN}, was unprivilegierten Nutzern das Programmieren von iptables erlaubt. \cite{lwn-controlling-access}. Kernel Entwickler mögen weniger auf Sicherheitsaspekte Bedacht sein, wenn einer
 User \texttt{root} Rechte hat \cite{kerrisk-anatomy}. Dies zeigte
 sich in Form mehrerer Schwachstellen \cite{cve-2013-1858, cve-2014-5206, cve-2014-5207, cve-2016-3135, cve-2017-1000111}. Das ist der Grund, weshalb manche Distributionen User Namespaces nur für privilegierte Nutzer unterstützen. Es gibt eine \texttt{sysctl} Konfiguration \texttt{kernel.unprivileged\_userns\_clone}, die es auch unprivilegierten Nutzern erlaubt, Namespaces zu erstellen. Diese sollte deaktiviert sein, um die beschriebene Gefahr der Privilege Escalation
 zu vermeiden. Auf Ubuntu Server 19.10 ist sie per Default aktiviert.
+
+\begin{lstlisting}[language=sh,caption={Eliminieren von root-Setuid Vulnerabilities mithilfe von User Namespaces}]
+$ ll /usr/bin/ping
+-rwsr-xr-x 1 root root 72776 Oct  5  2019 /usr/bin/ping*
+
+$ ping google.com
+PING google.com (172.217.22.78) 56(84) bytes of data.
+...
+
+$ unshare --user bash
+$ ll /usr/bin/ping
+-rwsr-xr-x 1 nobody nogroup 72776 Oct  5  2019 /usr/bin/ping*
+$ ping google.com
+bash: /usr/bin/ping: Operation not permitted
+\end{lstlisting}
 
 Um die Sicherheit vor Privilege Escalation durch aus User Namespace Sandboxen zu wahren, ist es wichtig, dass die UID 0 in der Sandbox auf eine unprivilegierte UID außerhalb gemappt wird \cite{lxc-sec, stgraber-unpriv}. Ist sie auf die \texttt{root} UID 0 auf dem Host gemappt spricht man von privilegierten Containern. Diese sind nicht sicher, da ein Sandbox-Ausbruch einer System-Kompromitierung gleichkommt.
 Bei unprivilegierten Containern hingegen findet sich ein Angreifer bei einem erfolgreichen Ausbruch als einfacher Nutzer. Im diesem Falle führen User Namespaces keine zusätzliche Unsicherheit ein. Die LXC Verfasser nenn diesen Modus \textit{root-safe} und gehen sogar so weit, zu sagen, dass es Seccomp, Capabilities und AppArmor/SELinux innerhalb des Containers unnötig macht \cite{lxc-sec}. Die UID/GID Mappings befinden sich in \texttt{/etc/subuid, /etc/subgid}. Sie zeigen auf welchen
