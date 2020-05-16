@@ -2,8 +2,6 @@ doc/
 bib/*.bib
 !bib/T3100*.bib
 
-main.tex
-
 session.tks
 
 ## Core latex/pdflatex auxiliary files:
