@@ -34,7 +34,7 @@
  month      = "4",
 }
 @manual{man-fortify,
- title      = "feature_test_macros(7) Linux User's Manual",
+ title      = "feature\_test\_macros(7) Linux User's Manual",
  year       = "2019",
  month      = "3",
 }
@@ -44,7 +44,7 @@
  month      = "3",
 }
 @manual{man-mount-ns,
- title      = "mount_namespaces(7) Linux User's Manual",
+ title      = "mount\_namespaces(7) Linux User's Manual",
  year       = "2019",
  month      = "8",
 }
@@ -59,7 +59,7 @@
  month      = "3",
 }
 @manual{man-user-ns,
- title      = "user_namespaces(7) Linux User's Manual",
+ title      = "user\_namespaces(7) Linux User's Manual",
  year       = "2019",
  month      = "8",
 }
@@ -131,4 +131,607 @@
 	year = {2020},
 	note = {Library Catalog: docs.docker.com},
 	file = {Snapshot:/Users/hegele/Zotero/storage/IRY2RJYT/seccomp.html:text/html}
+}
+
+@misc{qubes,
+	title = {Qubes {OS} {Architecture} v0.3},
+	url = {https://www.qubes-os.org/doc/architecture/},
+	publisher = {Invisible Things Lab},
+	author = {Rutkowska, Joanna and Wojtczuk, Rafal}
+}
+
+@article{saltzer_protection_1975,
+	title = {The protection of information in computer systems},
+	volume = {63},
+	issn = {1558-2256},
+	doi = {10.1109/PROC.1975.9939},
+	abstract = {This tutorial paper explores the mechanics of protecting computer-stored information from unauthorized use or modification. It concentrates on those architectural structures-whether hardware or software-that are necessary to support information protection. The paper develops in three main sections. Section I describes desired functions, design principles, and examples of elementary protection and authentication mechanisms. Any reader familiar with computers should find the first section to be reasonably accessible. Section II requires some familiarity with descriptor-based computer architecture. It examines in depth the principles of modern protection architectures and the relation between capability systems and access control list systems, and ends with a brief analysts of protected subsystems and protected objects. The reader who is dismayed by either the prerequisites or the level of detail in the second section may wish to skip to Section III, which reviews the state of the art and current research projects and provides suggestions for further reading.},
+	number = {9},
+	journal = {Proceedings of the IEEE},
+	author = {Saltzer, J.H. and Schroeder, M.D.},
+	month = sep,
+	year = {1975},
+	note = {Conference Name: Proceedings of the IEEE},
+	keywords = {Access control, Authorization, Computer architecture, Data security, Information security, Modems, Permission, Protection, Terminology},
+	pages = {1278--1308},
+	file = {IEEE Xplore Full Text PDF:/Users/hegele/Zotero/storage/7I96XM4K/Saltzer and Schroeder - 1975 - The protection of information in computer systems.pdf:application/pdf;IEEE Xplore Abstract Record:/Users/hegele/Zotero/storage/BU9H3GPH/1451869.html:text/html}
+}
+
+@misc{attack-setuid,
+	title = {Setuid and {Setgid}, {Technique} {T1166} - {Enterprise} {\textbar} {MITRE} {ATT}\&{CK}®},
+	url = {https://attack.mitre.org/techniques/T1166/},
+	urldate = {2020-05-05},
+	file = {Setuid and Setgid, Technique T1166 - Enterprise | MITRE ATT&CK®:/Users/hegele/Zotero/storage/NYMWNYGU/T1166.html:text/html}
+}
+
+@misc{android-sandbox,
+	title = {Application {Sandbox}},
+	url = {https://source.android.com/security/app-sandbox},
+	language = {en},
+	urldate = {2020-05-05},
+	journal = {Android Open Source Project},
+	note = {Library Catalog: source.android.com},
+	file = {Snapshot:/Users/hegele/Zotero/storage/HBYJCG9H/app-sandbox.html:text/html}
+}
+
+@misc{android-ptrace,
+	title = {Android {Kernel} {\textless} 4.8 - ptrace seccomp {Filter} {Bypass}},
+	url = {https://www.exploit-db.com/exploits/46434},
+	abstract = {Android Kernel {\textless} 4.8 - ptrace seccomp Filter Bypass.. dos exploit for Android platform},
+	language = {en},
+	urldate = {2020-05-06},
+	journal = {Exploit Database},
+	author = {Research, Google Security},
+	month = feb,
+	year = {2019},
+	note = {Library Catalog: www.exploit-db.com},
+	file = {Snapshot:/Users/hegele/Zotero/storage/FYKQD833/46434.html:text/html}
+}
+
+@misc{attack-process-injection,
+	title = {Process {Injection}, {Technique} {T1055} - {Enterprise} {\textbar} {MITRE} {ATT}\&{CK}®},
+	url = {https://attack.mitre.org/techniques/T1055/},
+	urldate = {2020-05-06},
+	file = {Process Injection, Technique T1055 - Enterprise | MITRE ATT&CK®:/Users/hegele/Zotero/storage/XTWNSSE6/T1055.html:text/html}
+}
+
+@misc{docker-seccomp,
+	title = {Seccomp security profiles for {Docker}},
+	url = {https://docs.docker.com/engine/security/seccomp/},
+	abstract = {Enabling seccomp in Docker},
+	language = {en},
+	urldate = {2020-05-06},
+	journal = {Docker Documentation},
+	month = may,
+	year = {2020},
+	note = {Library Catalog: docs.docker.com},
+	file = {Snapshot:/Users/hegele/Zotero/storage/IRY2RJYT/seccomp.html:text/html}
+}
+
+@misc{hovav-rop,
+	title = {Hovav {Shacham}: {Return}-{Oriented} {Programming}},
+	url = {https://hovav.net/ucsd/talks/blackhat08.html},
+	urldate = {2020-05-06},
+	file = {Hovav Shacham\: Return-Oriented Programming:/Users/hegele/Zotero/storage/266NXJL4/blackhat08.html:text/html}
+}
+
+@inproceedings{shacham_2004,
+	address = {Washington DC, USA},
+	series = {{CCS} '04},
+	title = {On the effectiveness of address-space randomization},
+	isbn = {978-1-58113-961-7},
+	url = {https://doi.org/10.1145/1030083.1030124},
+	doi = {10.1145/1030083.1030124},
+	abstract = {Address-space randomization is a technique used to fortify systems against buffer overflow attacks. The idea is to introduce artificial diversity by randomizing the memory location of certain system components. This mechanism is available for both Linux (via PaX ASLR) and OpenBSD. We study the effectiveness of address-space randomization and find that its utility on 32-bit architectures is limited by the number of bits available for address randomization. In particular, we demonstrate a \textit{derandomization attack} that will convert any standard buffer-overflow exploit into an exploit that works against systems protected by address-space randomization. The resulting exploit is as effective as the original exploit, although it takes a little longer to compromise a target machine: on average 216 seconds to compromise Apache running on a Linux PaX ASLR system. The attack does not require running code on the stack. We also explore various ways of strengthening address-space randomization and point out weaknesses in each. Surprisingly, increasing the frequency of re-randomizations adds at most 1 bit of security. Furthermore, compile-time randomization appears to be more effective than runtime randomization. We conclude that, on 32-bit architectures, the only benefit of PaX-like address-space randomization is a small slowdown in worm propagation speed. The cost of randomization is extra complexity in system support.},
+	urldate = {2020-05-06},
+	booktitle = {Proceedings of the 11th {ACM} conference on {Computer} and communications security},
+	publisher = {Association for Computing Machinery},
+	author = {Shacham, Hovav and Page, Matthew and Pfaff, Ben and Goh, Eu-Jin and Modadugu, Nagendra and Boneh, Dan},
+	month = oct,
+	year = {2004},
+	keywords = {address-space randomization, automated attacks, diversity},
+	pages = {298--307},
+	file = {Full Text PDF:/Users/hegele/Zotero/storage/8TNSGVH2/Shacham et al. - 2004 - On the effectiveness of address-space randomizatio.pdf:application/pdf}
+}
+
+@misc{pax-aslr,
+	title = {{PaX} address space layout randomization ({ASLR})},
+	url = {https://pax.grsecurity.net/docs/aslr.txt},
+	urldate = {2020-05-06},
+	author = {{PaX Team}},
+	file = {:/Users/hegele/Zotero/storage/D8DQ986P/aslr.html:text/html}
+}
+
+@inproceedings{stackguard,
+	title = {Stackguard: {Automatic} adaptive detection and prevention of buffer-overflow attacks.},
+	volume = {98},
+	booktitle = {{USENIX} security symposium},
+	publisher = {San Antonio, TX},
+	author = {Cowan, Crispan and Pu, Calton and Maier, Dave and Walpole, Jonathan and Bakke, Peat and Beattie, Steve and Grier, Aaron and Wagle, Perry and Zhang, Qian and Hinton, Heather},
+	year = {1998},
+	pages = {63--78}
+}
+
+@inproceedings{pointguard,
+	title = {{PointGuardTM}: {Protecting} pointers from buffer overflow vulnerabilities},
+	volume = {12},
+	booktitle = {Proceedings of the 12th conference on {USENIX} {Security} {Symposium}},
+	author = {Cowan, Crispin and Beattie, Steve and Johansen, John and Wagle, Perry},
+	year = {2003},
+	pages = {91--104}
+}
+
+@misc{stack-protector-strong,
+	title = {[{PATCH}] {Add} a new option "-fstack-protector-strong" (patch / doc inside)},
+	url = {https://gcc.gnu.org/legacy-ml/gcc-patches/2012-06/msg00974.html},
+	abstract = {jj},
+	urldate = {2020-05-07},
+	author = {Shen, Han},
+	file = {Han Shen(ææ) - [PATCH] Add a new option "-fstack-protector-strong" (patch / doc inside):/Users/hegele/Zotero/storage/HIT2EAIX/msg00974.html:text/html}
+}
+
+@misc{debian-hardening,
+	title = {Hardening - {Debian} {Wiki}},
+	url = {https://wiki.debian.org/Hardening#hardening-wrapper},
+	urldate = {2020-05-07},
+	file = {Hardening - Debian Wiki:/Users/hegele/Zotero/storage/MRK4N4ER/Hardening.html:text/html}
+}
+
+@misc{alpeh1996smashing,
+	title = {Smashing the {Stack} for {Fun} and {Profit} by {Aleph} {One}},
+	url = {https://insecure.org/stf/smashstack.html},
+	urldate = {2020-05-07},
+	file = {Smashing the Stack for Fun and Profit by Aleph One:/Users/hegele/Zotero/storage/YAF6QGAM/smashstack.html:text/html}
+}
+
+@misc{debian-9,
+	title = {Chapter 2. {What}'s new in {Debian} 9},
+	url = {https://www.debian.org/releases/stretch/s390/release-notes/ch-whats-new.en.html},
+	urldate = {2020-05-07},
+	file = {Chapter 2. What's new in Debian 9:/Users/hegele/Zotero/storage/89YCBAWH/ch-whats-new.en.html:text/html}
+}
+
+@misc{lwn-kaslr,
+	title = {Kernel address space layout randomization},
+	url = {https://lwn.net/Articles/569635/},
+	urldate = {2020-05-07},
+	journal = {LWN.net},
+	author = {Edge, Jake},
+	month = oct,
+	year = {2013},
+	file = {Kernel address space layout randomization [LWN.net]:/Users/hegele/Zotero/storage/BJ4UBJ9T/569635.html:text/html}
+}
+
+@misc{sysctl-kernel,
+	title = {Documentation for /proc/sys/kernel/ — {The} {Linux} {Kernel} documentation},
+	url = {https://www.kernel.org/doc/html/latest/admin-guide/sysctl/kernel.html},
+	urldate = {2020-05-07},
+	author = {van Riel, Riek and Feng, Shen},
+	file = {Documentation for /proc/sys/kernel/ — The Linux Kernel documentation:/Users/hegele/Zotero/storage/4S5GNMGS/kernel.html:text/html}
+}
+
+@misc{ubuntu-security-features,
+	title = {Security/{Features} - {Ubuntu} {Wiki}},
+	url = {https://wiki.ubuntu.com/Security/Features#kptr-restrict},
+	urldate = {2020-05-07},
+	file = {Security/Features - Ubuntu Wiki:/Users/hegele/Zotero/storage/EFIW9NDB/Features.html:text/html}
+}
+
+@misc{firefox-sandbox,
+	title = {Security/{Sandbox} - {MozillaWiki}},
+	url = {https://wiki.mozilla.org/Security/Sandbox},
+	urldate = {2020-05-07},
+	file = {Security/Sandbox - MozillaWiki:/Users/hegele/Zotero/storage/LKVV37VM/Sandbox.html:text/html}
+}
+
+@misc{chromium-sandbox,
+	title = {Chromium {OS} {Docs} - {Sandboxing} {Chrome} {OS} system services},
+	url = {https://chromium.googlesource.com/chromiumos/docs/+/master/sandboxing.md#Minijail-wrappers},
+	urldate = {2020-05-07},
+	file = {Chromium OS Docs - Sandboxing Chrome OS system services:/Users/hegele/Zotero/storage/KYFZWXXE/sandboxing.html:text/html}
+}
+
+@misc{firejail,
+	title = {Firejail {Documentation}},
+	url = {https://firejail.wordpress.com/documentation-2/},
+	language = {en},
+	urldate = {2020-05-07},
+	journal = {Firejail},
+	month = dec,
+	year = {2015},
+	note = {Library Catalog: firejail.wordpress.com},
+	file = {Snapshot:/Users/hegele/Zotero/storage/9KBQKSN7/documentation-2.html:text/html}
+}
+
+@misc{opencontainers,
+	title = {Home},
+	url = {https://www.opencontainers.org/},
+	language = {en-US},
+	urldate = {2020-05-07},
+	journal = {Open Containers Initiative},
+	note = {Library Catalog: www.opencontainers.org},
+	file = {Snapshot:/Users/hegele/Zotero/storage/A7QH5H7F/www.opencontainers.org.html:text/html}
+}
+
+@misc{docker-sec,
+	title = {Docker security},
+	url = {https://docs.docker.com/engine/security/security/},
+	abstract = {Review of the Docker Daemon attack surface},
+	language = {en},
+	urldate = {2020-05-08},
+	journal = {Docker Documentation},
+	author = {{Docker Inc.}},
+	month = may,
+	year = {2020},
+	note = {Library Catalog: docs.docker.com},
+	file = {Snapshot:/Users/hegele/Zotero/storage/2I8U73S4/security.html:text/html}
+}
+
+@misc{libvirt-sandbox,
+	title = {libvirt: {LXC} container driver},
+	url = {https://libvirt.org/drvlxc.html},
+	urldate = {2020-05-08},
+	file = {libvirt\: LXC container driver:/Users/hegele/Zotero/storage/XAE4BE77/drvlxc.html:text/html}
+}
+
+@misc{runc,
+	title = {opencontainers/runc},
+	url = {https://github.com/opencontainers/runc},
+	abstract = {CLI tool for spawning and running containers according to the OCI specification - opencontainers/runc},
+	language = {en},
+	urldate = {2020-05-08},
+	journal = {GitHub},
+	note = {Library Catalog: github.com},
+	file = {Snapshot:/Users/hegele/Zotero/storage/U3RDEWEZ/libcontainer.html:text/html}
+}
+
+@misc{systemd-nspawn,
+	title = {Creating containers with systemd-nspawn [{LWN}.net]},
+	url = {https://lwn.net/Articles/572957/},
+	urldate = {2020-05-08},
+	file = {Creating containers with systemd-nspawn [LWN.net]:/Users/hegele/Zotero/storage/PUX5MXYZ/572957.html:text/html}
+}
+
+@misc{cve-2014-5206,
+	title = {{NVD} - {CVE}-2014-5206},
+	url = {https://nvd.nist.gov/vuln/detail/CVE-2014-5206},
+	urldate = {2020-05-08},
+	file = {NVD - CVE-2014-5206:/Users/hegele/Zotero/storage/GPUQKUKU/CVE-2014-5206.html:text/html}
+}
+
+@misc{cve-2013-1858,
+	title = {{NVD} - {CVE}-2013-1858},
+	url = {https://nvd.nist.gov/vuln/detail/CVE-2013-1858},
+	urldate = {2020-05-08},
+	file = {NVD - CVE-2013-1858:/Users/hegele/Zotero/storage/XZD9P7RP/CVE-2013-1858.html:text/html}
+}
+
+@misc{cve-2014-5207,
+	title = {{NVD} - {CVE}-2014-5207},
+	url = {https://nvd.nist.gov/vuln/detail/CVE-2014-5207},
+	urldate = {2020-05-08},
+	file = {NVD - CVE-2014-5207:/Users/hegele/Zotero/storage/D7DYIQ4X/CVE-2014-5207.html:text/html}
+}
+
+@misc{cve-2017-1000111,
+	title = {{NVD} - {CVE}-2017-1000111},
+	url = {https://nvd.nist.gov/vuln/detail/CVE-2017-1000111},
+	urldate = {2020-05-08},
+	file = {NVD - CVE-2017-1000111:/Users/hegele/Zotero/storage/K8E2PLMA/CVE-2017-1000111.html:text/html}
+}
+
+@misc{docker-userns,
+	title = {Isolate containers with a user namespace},
+	url = {https://docs.docker.com/engine/security/userns-remap/},
+	abstract = {Isolate containers within a user namespace},
+	language = {en},
+	urldate = {2020-05-08},
+	journal = {Docker Documentation},
+	month = may,
+	year = {2020},
+	note = {Library Catalog: docs.docker.com},
+	file = {Snapshot:/Users/hegele/Zotero/storage/8QLCZ5XY/userns-remap.html:text/html}
+}
+
+@misc{lxc-sec,
+	title = {Linux {Containers} - {LXC} - {Security}},
+	url = {https://linuxcontainers.org/lxc/security/},
+	urldate = {2020-05-08},
+	file = {Linux Containers - LXC - Security:/Users/hegele/Zotero/storage/3KFLCXFB/security.html:text/html}
+}
+
+@misc{stgraber-unpriv,
+	title = {{LXC} 1.0: {Unprivileged} containers [7/10] {\textbar} {Stéphane} {Graber}'s website},
+	shorttitle = {{LXC} 1.0},
+	url = {https://stgraber.org/2014/01/17/lxc-1-0-unprivileged-containers/},
+	language = {en-US},
+	urldate = {2020-05-08},
+	note = {Library Catalog: stgraber.org},
+	file = {Snapshot:/Users/hegele/Zotero/storage/5W65K4NL/lxc-1-0-unprivileged-containers.html:text/html}
+}
+
+@misc{kerrisk-anatomy,
+	title = {Anatomy of a user namespaces vulnerability [{LWN}.net]},
+	url = {https://lwn.net/Articles/543273/},
+	urldate = {2020-05-08},
+	file = {Anatomy of a user namespaces vulnerability [LWN.net]:/Users/hegele/Zotero/storage/IJGKWVA7/543273.html:text/html}
+}
+
+@article{xen,
+	title = {Xen and the art of virtualization},
+	volume = {37},
+	issn = {0163-5980},
+	url = {https://doi.org/10.1145/1165389.945462},
+	doi = {10.1145/1165389.945462},
+	abstract = {Numerous systems have been designed which use virtualization to subdivide the ample resources of a modern computer. Some require specialized hardware, or cannot support commodity operating systems. Some target 100\% binary compatibility at the expense of performance. Others sacrifice security or functionality for speed. Few offer resource isolation or performance guarantees; most provide only best-effort provisioning, risking denial of service.This paper presents Xen, an x86 virtual machine monitor which allows multiple commodity operating systems to share conventional hardware in a safe and resource managed fashion, but without sacrificing either performance or functionality. This is achieved by providing an idealized virtual machine abstraction to which operating systems such as Linux, BSD and Windows XP, can be ported with minimal effort.Our design is targeted at hosting up to 100 virtual machine instances simultaneously on a modern server. The virtualization approach taken by Xen is extremely efficient: we allow operating systems such as Linux and Windows XP to be hosted simultaneously for a negligible performance overhead --- at most a few percent compared with the unvirtualized case. We considerably outperform competing commercial and freely available solutions in a range of microbenchmarks and system-wide tests.},
+	number = {5},
+	urldate = {2020-05-09},
+	journal = {ACM SIGOPS Operating Systems Review},
+	author = {Barham, Paul and Dragovic, Boris and Fraser, Keir and Hand, Steven and Harris, Tim and Ho, Alex and Neugebauer, Rolf and Pratt, Ian and Warfield, Andrew},
+	month = oct,
+	year = {2003},
+	keywords = {hypervisors, paravirtualization, virtual machine monitors},
+	pages = {164--177},
+	file = {Full Text PDF:/Users/hegele/Zotero/storage/CCQ6IDP8/Barham et al. - 2003 - Xen and the art of virtualization.pdf:application/pdf}
+}
+
+@article{uhlig-intel,
+	title = {Intel virtualization technology},
+	volume = {38},
+	issn = {1558-0814},
+	doi = {10.1109/MC.2005.163},
+	abstract = {A virtualized system includes a new layer of software, the virtual machine monitor. The VMM's principal role is to arbitrate accesses to the underlying physical host platform's resources so that multiple operating systems (which are guests of the VMM) can share them. The VMM presents to each guest OS a set of virtual platform interfaces that constitute a virtual machine (VM). Once confined to specialized, proprietary, high-end server and mainframe systems, virtualization is now becoming more broadly available and is supported in off-the-shelf systems based on Intel architecture (IA) hardware. This development is due in part to the steady performance improvements of IA-based systems, which mitigates traditional virtualization performance overheads. Intel virtualization technology provides hardware support for processor virtualization, enabling simplifications of virtual machine monitor software. Resulting VMMs can support a wider range of legacy and future operating systems while maintaining high performance.},
+	number = {5},
+	journal = {Computer},
+	author = {Uhlig, R. and Neiger, G. and Rodgers, D. and Santoni, A.L. and Martins, F.C.M. and Anderson, A.V. and Bennett, S.M. and Kagi, A. and Leung, F.H. and Smith, L.},
+	month = may,
+	year = {2005},
+	note = {Conference Name: Computer},
+	keywords = {Computer architecture, Application software, Application virtualization, computer architecture, computer architectures, File servers, guest operating systems, Hardware, IA-32 architecture, Intel virtualization technology, Itanium architecture, Itanium processor virtualization, mainframe systems, mainframes, Operating systems, operating systems (computers), performance evaluation, Platform virtualization, security of data, software systems, virtual machine monitor, Virtual machine monitors, virtual machines, Virtual manufacturing, virtual platform interfaces, virtualization technology, Voice mail},
+	pages = {48--56},
+	file = {IEEE Xplore Full Text PDF:/Users/hegele/Zotero/storage/8RID2NGK/Uhlig et al. - 2005 - Intel virtualization technology.pdf:application/pdf;IEEE Xplore Abstract Record:/Users/hegele/Zotero/storage/NE9ZZR63/1430631.html:text/html}
+}
+
+@article{li_cyberguarder_2012,
+	title = {{CyberGuarder}: {A} virtualization security assurance architecture for green cloud computing},
+	volume = {28},
+	issn = {0167-739X},
+	shorttitle = {{CyberGuarder}},
+	url = {http://www.sciencedirect.com/science/article/pii/S0167739X1100063X},
+	doi = {10.1016/j.future.2011.04.012},
+	abstract = {As the sizes of IT infrastructure continue to grow, cloud computing is a natural extension of virtualisation technologies that enable scalable management of virtual machines over a plethora of physically connected systems. The so-called virtualisation-based cloud computing paradigm offers a practical approach to green IT/clouds, which emphasise the construction and deployment of scalable, energy-efficient network software applications (NetApp) by virtue of improved utilisation of the underlying resources. The latter is typically achieved through increased sharing of hardware and data in a multi-tenant cloud architecture/environment and, as such, accentuates the critical requirement for enhanced security services as an integrated component of the virtual infrastructure management strategy. This paper analyses the key security challenges faced by contemporary green cloud computing environments, and proposes a virtualisation security assurance architecture, CyberGuarder, which is designed to address several key security problems within the ‘green’ cloud computing context. In particular, CyberGuarder provides three different kinds of services; namely, a virtual machine security service, a virtual network security service and a policy based trust management service. Specifically, the proposed virtual machine security service incorporates a number of new techniques which include (1) a VMM-based integrity measurement approach for NetApp trusted loading, (2) a multi-granularity NetApp isolation mechanism to enable OS user isolation, and (3) a dynamic approach to virtual machine and network isolation for multiple NetApp’s based on energy-efficiency and security requirements. Secondly, a virtual network security service has been developed successfully to provide an adaptive virtual security appliance deployment in a NetApp execution environment, whereby traditional security services such as IDS and firewalls can be encapsulated as VM images and deployed over a virtual security network in accordance with the practical configuration of the virtualised infrastructure. Thirdly, a security service providing policy based trust management is proposed to facilitate access control to the resources pool and a trust federation mechanism to support/optimise task privacy and cost requirements across multiple resource pools. Preliminary studies of these services have been carried out on our iVIC platform, with promising results. As part of our ongoing research in large-scale, energy-efficient/green cloud computing, we are currently developing a virtual laboratory for our campus courses using the virtualisation infrastructure of iVIC, which incorporates the important results and experience of CyberGuarder in a practical context.},
+	language = {en},
+	number = {2},
+	urldate = {2020-05-09},
+	journal = {Future Generation Computer Systems},
+	author = {Li, Jianxin and Li, Bo and Wo, Tianyu and Hu, Chunming and Huai, Jinpeng and Liu, Lu and Lam, K. P.},
+	month = feb,
+	year = {2012},
+	keywords = {Cloud computing, Green computing, Security isolation, Virtual security appliance, Virtualization},
+	pages = {379--390},
+	file = {ScienceDirect Snapshot:/Users/hegele/Zotero/storage/5SZ2Q48R/S0167739X1100063X.html:text/html;ScienceDirect Full Text PDF:/Users/hegele/Zotero/storage/N7NXR24P/Li et al. - 2012 - CyberGuarder A virtualization security assurance .pdf:application/pdf}
+}
+
+@inproceedings{christo,
+	address = {Chicago, Illinois, USA},
+	series = {{CCSW} '09},
+	title = {Cloud security is not (just) virtualization security: a short paper},
+	isbn = {978-1-60558-784-4},
+	shorttitle = {Cloud security is not (just) virtualization security},
+	url = {https://doi.org/10.1145/1655008.1655022},
+	doi = {10.1145/1655008.1655022},
+	abstract = {Cloud infrastructure commonly relies on virtualization. Customers provide their own VMs, and the cloud provider runs them often without knowledge of the guest OSes or their configurations. However, cloud customers also want effective and efficient security for their VMs. Cloud providers offering security-as-a-service based on VM introspection promise the best of both worlds: efficient centralization and effective protection. Since customers can move images from one cloud to another, an effective solution requires learning what guest OS runs in each VM and securing the guest OS without relying on the guest OS functionality or an initially secure guest VM state. We present a solution that is highly scalable in that it (i) centralizes guest protection into a security VM, (ii) supports Linux and Windows operating systems and can be easily extended to support new operating systems, (iii) does not assume any a-priori semantic knowledge of the guest, (iv) does not require any a-priori trust assumptions into any state of the guest VM. While other introspection monitoring solutions exist, to our knowledge none of them monitor guests on the semantic level required to effectively support both white- and black-listing of kernel functions, or allows to start monitoring VMs at any state during run-time, resumed from saved state, and cold-boot without the assumptions of a secure start state for monitoring.},
+	urldate = {2020-05-09},
+	booktitle = {Proceedings of the 2009 {ACM} workshop on {Cloud} computing security},
+	publisher = {Association for Computing Machinery},
+	author = {Christodorescu, Mihai and Sailer, Reiner and Schales, Douglas Lee and Sgandurra, Daniele and Zamboni, Diego},
+	month = nov,
+	year = {2009},
+	keywords = {cloud computing, integrity, outsourcing, virtualization},
+	pages = {97--102},
+	file = {Full Text PDF:/Users/hegele/Zotero/storage/LP33WS5B/Christodorescu et al. - 2009 - Cloud security is not (just) virtualization securi.pdf:application/pdf}
+}
+
+@misc{lwn-controlling-access,
+	title = {Controlling access to user namespaces [{LWN}.net]},
+	url = {https://lwn.net/Articles/673597/},
+	urldate = {2020-05-09},
+	file = {Controlling access to user namespaces [LWN.net]:/Users/hegele/Zotero/storage/4GQGLGN4/673597.html:text/html}
+}
+
+@misc{second-chroot,
+	title = {Breaking out of a chroot() padded cell},
+	url = {https://web.archive.org/web/20160127150916/http://www.bpfh.net/simes/computing/chroot-break.html},
+	urldate = {2020-05-09},
+	month = jan,
+	year = {2016},
+	file = {Snapshot:/Users/hegele/Zotero/storage/9ALS3NE2/chroot-break.html:text/html}
+}
+
+@misc{bubblewrap,
+	title = {containers/bubblewrap},
+	url = {https://github.com/containers/bubblewrap},
+	abstract = {Unprivileged sandboxing tool. Contribute to containers/bubblewrap development by creating an account on GitHub.},
+	urldate = {2020-05-09},
+	publisher = {Containers},
+	month = may,
+	year = {2020},
+	note = {original-date: 2016-02-16T20:36:10Z},
+	keywords = {linux-containers, user-namespaces}
+}
+
+@inproceedings{terra,
+	address = {Copper Mountain, Colorado, USA},
+	series = {{SOSP} '95},
+	title = {Hypervisor-based fault tolerance},
+	isbn = {978-0-89791-715-5},
+	url = {https://doi.org/10.1145/224056.224058},
+	doi = {10.1145/224056.224058},
+	urldate = {2020-05-09},
+	booktitle = {Proceedings of the fifteenth {ACM} symposium on {Operating} systems principles},
+	publisher = {Association for Computing Machinery},
+	author = {Bressoud, T. C. and Schneider, F. B.},
+	month = dec,
+	year = {1995},
+	pages = {1--11},
+	file = {Full Text PDF:/Users/hegele/Zotero/storage/WPZUN5NJ/Bressoud and Schneider - 1995 - Hypervisor-based fault tolerance.pdf:application/pdf}
+}
+
+@article{revirt,
+	title = {{ReVirt}: {Enabling} intrusion analysis through virtual-machine logging and replay},
+	volume = {36},
+	number = {SI},
+	journal = {ACM SIGOPS Operating Systems Review},
+	author = {Dunlap, George W and King, Samuel T and Cinar, Sukru and Basrai, Murtaza A and Chen, Peter M},
+	year = {2002},
+	note = {Publisher: ACM New York, NY, USA},
+	pages = {211--224}
+}
+
+@misc{relro,
+	title = {{GOT} and {PLT} for pwning.},
+	url = {https://systemoverlord.com/2017/03/19/got-and-plt-for-pwning.html},
+	abstract = {So, during the recent 0CTF, one of my teammates was asking me about RELRO and the GOT and the PLT and all of the ELF sections involved. I realized that though I knew the general concepts, I didn’t know as much as I should, so I did some research to...},
+	language = {en-us},
+	urldate = {2020-05-10},
+	journal = {System Overlord},
+	note = {Library Catalog: systemoverlord.com},
+	file = {Snapshot:/Users/hegele/Zotero/storage/4KW2P4DA/got-and-plt-for-pwning.html:text/html}
+}
+
+@misc{attack-sudo-caching,
+	title = {Sudo {Caching}, {Technique} {T1206} - {Enterprise} {\textbar} {MITRE} {ATT}\&{CK}®},
+	url = {https://attack.mitre.org/techniques/T1206/},
+	urldate = {2020-05-10},
+	file = {Sudo Caching, Technique T1206 - Enterprise | MITRE ATT&CK®:/Users/hegele/Zotero/storage/RFH5JX8L/T1206.html:text/html}
+}
+
+@misc{attack-rootkit,
+	title = {Rootkit, {Technique} {T1014} - {Enterprise} {\textbar} {MITRE} {ATT}\&{CK}®},
+	url = {https://attack.mitre.org/techniques/T1014/},
+	urldate = {2020-05-10},
+	file = {Rootkit, Technique T1014 - Enterprise | MITRE ATT&CK®:/Users/hegele/Zotero/storage/TALW85CL/T1014.html:text/html}
+}
+
+@misc{attack-lkm,
+	title = {Kernel {Modules} and {Extensions}, {Technique} {T1215} - {Enterprise} {\textbar} {MITRE} {ATT}\&{CK}®},
+	url = {https://attack.mitre.org/techniques/T1215/},
+	urldate = {2020-05-10},
+	file = {Kernel Modules and Extensions, Technique T1215 - Enterprise | MITRE ATT&CK®:/Users/hegele/Zotero/storage/VKPX8X9N/T1215.html:text/html}
+}
+
+@techreport{cis,
+	title = {{CIS} {Ubuntu} {Linux} 18.04 {LTS} {Benchmark} v.2.0.1},
+	url = {https://www.cisecurity.org/cis-benchmarks/},
+	urldate = {2020-05-16},
+	institution = {Center for Internet Security},
+	author = {{CIS Benchmarks}},
+	month = mar,
+	year = {2020},
+	file = {CIS Benchmarks - 2020 - CIS Ubuntu Linux 18.04 LTS Benchmark v.2.0.1.pdf:/Users/hegele/Zotero/storage/Q223855Z/CIS Benchmarks - 2020 - CIS Ubuntu Linux 18.04 LTS Benchmark v.2.0.1.pdf:application/pdf}
+}
+
+@misc{ubuntu-certifications,
+	title = {Canonical security certifications},
+	url = {https://ubuntu.com/security/certifications},
+	abstract = {Technical details on all of the security certifications for Ubuntu Advantage subscribers.},
+	language = {en},
+	urldate = {2020-05-16},
+	journal = {Ubuntu},
+	note = {Library Catalog: ubuntu.com},
+	file = {Snapshot:/Users/hegele/Zotero/storage/EZC66SFD/certifications.html:text/html}
+}
+
+@misc{so-survey-2019,
+	title = {Stack {Overflow} {Developer} {Survey} 2019},
+	url = {https://insights.stackoverflow.com/survey/2019/?utm_source=social-share&utm_medium=social&utm_campaign=dev-survey-2019},
+	abstract = {Nearly 90,000 took this comprehensive, annual survey of people who code. Demographics. Most loved, dreaded and wanted technologies. Salary and careers.},
+	urldate = {2020-05-16},
+	journal = {Stack Overflow},
+	note = {Library Catalog: insights.stackoverflow.com},
+	file = {Snapshot:/Users/hegele/Zotero/storage/NZSK67KQ/2019.html:text/html}
+}
+
+@misc{attack-histcontrol,
+	title = {{HISTCONTROL}, {Technique} {T1148} - {Enterprise} {\textbar} {MITRE} {ATT}\&{CK}®},
+	url = {https://attack.mitre.org/techniques/T1148/},
+	urldate = {2020-05-16},
+	file = {HISTCONTROL, Technique T1148 - Enterprise | MITRE ATT&CK®:/Users/hegele/Zotero/storage/4J94D2ZU/T1148.html:text/html}
+}
+
+@misc{cuckoo,
+	title = {Cuckoo {Sandbox} - {Automated} {Malware} {Analysis}},
+	url = {https://cuckoosandbox.org/},
+	urldate = {2020-05-16},
+	file = {Cuckoo Sandbox - Automated Malware Analysis:/Users/hegele/Zotero/storage/RE8S57G4/cuckoosandbox.org.html:text/html}
+}
+
+@misc{cve-2016-3135,
+	title = {{NVD} - {CVE}-2016-3135},
+	url = {https://nvd.nist.gov/vuln/detail/CVE-2016-3135},
+	urldate = {2020-05-16},
+	file = {NVD - CVE-2016-3135:/Users/hegele/Zotero/storage/HKFZP2MT/CVE-2016-3135.html:text/html}
+}
+
+@misc{deb-hardening,
+	title = {Hardening - {Debian} {Wiki}},
+	url = {https://wiki.debian.org/Hardening},
+	urldate = {2020-05-16},
+	file = {Hardening - Debian Wiki:/Users/hegele/Zotero/storage/GID4LMGK/Hardening.html:text/html}
+}
+
+@misc{mbox,
+	title = {tsgates/mbox},
+	url = {https://github.com/tsgates/mbox},
+	abstract = {A lightweight sandbox tool for non-root users. Contribute to tsgates/mbox development by creating an account on GitHub.},
+	urldate = {2020-05-16},
+	author = {Kim, Taesoo},
+	month = may,
+	year = {2020},
+	note = {original-date: 2013-07-05T12:00:16Z}
+}
+
+@misc{openvz,
+	title = {{OpenVZ} {Virtuozzo} {Containers} {Wiki}},
+	url = {https://wiki.openvz.org/Main_Page},
+	urldate = {2020-05-16},
+	file = {OpenVZ Virtuozzo Containers Wiki:/Users/hegele/Zotero/storage/Z4F3NZY6/Main_Page.html:text/html}
+}
+
+@misc{selinux-sandbox,
+	title = {{NB} {SandBox} - {SELinux} {Wiki}},
+	url = {https://selinuxproject.org/page/NB_SandBox},
+	urldate = {2020-05-16},
+	file = {NB SandBox - SELinux Wiki:/Users/hegele/Zotero/storage/XGSM37IS/NB_SandBox.html:text/html}
+}
+
+@misc{lxc,
+	title = {Linux {Containers} - {LXC} - {Introduction}},
+	url = {https://linuxcontainers.org/lxc/},
+	urldate = {2020-05-16},
+	file = {Linux Containers - LXC - Introduction:/Users/hegele/Zotero/storage/38QYD8ZF/lxc.html:text/html}
+}
+
+@misc{svirt,
+	title = {{SVirt} - {SELinux} {Wiki}},
+	url = {http://www.selinuxproject.org/page/SVirt},
+	urldate = {2020-05-16},
+	file = {SVirt - SELinux Wiki:/Users/hegele/Zotero/storage/LRTQVV9H/SVirt.html:text/html}
+}
+
+@misc{docker,
+	title = {Docker},
+	url = {https://www.docker.com/},
+	abstract = {Learn how Docker helps developers bring their ideas to life by conquering the complexity of app development.},
+	language = {en},
+	urldate = {2020-05-16},
+	note = {Library Catalog: www.docker.com},
+	file = {Snapshot:/Users/hegele/Zotero/storage/AMAZJP7P/www.docker.com.html:text/html}
+}
+
+@misc{qa-regression,
+	title = {qa-regression-testing},
+	url = {https://git.launchpad.net/qa-regression-testing/},
+	urldate = {2020-05-16},
+	file = {qa-regression-testing - [no description]:/Users/hegele/Zotero/storage/Y2F7FUNE/qa-regression-testing.html:text/html}
 }

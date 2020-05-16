@@ -1,2 +1,10 @@
 \chapter{Einleitung}
 
+Die StackOverflow-Survey vom Jahr 2019 zeigt die ansteigende Beliebtheit von Docker als drittmeist genutzte und meist gewollte Plattform \cite{so-survey-2019}. Mitverantwortlich für diesen Anstieg ist die Emergenz des Cloud Computing. Container ermöglichen die einfache, schnelle und bedarfsabhängige Provisionierung von Services. Anwendungsentwickler machen sich weniger Gedanken über die Sicherheit der Plattform und konzentrieren sich auf die Sicherheit der Anwendung.
+
+Sicherheitslücken im Kernel des hostenden Cloud Providers können einen Ausbruch aus Containern ermöglichen. In `multi-tenant'-Instanzen hat dies schwerwiegende Folgen: die Vertraulichkeit der Daten mehrerer sich eine Maschine teilender Cloud-Nutzer ist gefährdet.
+Um die Wahrscheinlichkeit sowie die Auswirkungen eines solchen Ausbruches zu minimieren, sollte die Kerneloberfläche des benutzten Betriebssystems minimiert werden. Ein gehärtetes Betriebssystem bietet weniger Angriffsoberfläche als ein standardmäßiges.
+
+Der Beitrag dieser Arbeit soll es sein, Härtungstechniken für das Linux Betriebssystem zu analysieren. Es sollen Angriffstaktiken beschrieben und modelliert werden, die mit diesen Techniken mitigiert werden können. Es wird versucht, die Vor- und Nachteile der einzelnen Lösungen darzustellen.
+
+Es wird sich in der Anwendung auf die `Ubuntu Server LTS 19.10' Distribution beschränkt. Die vorgestellten Funktionen sind also ohne Weiteres potenziell (wahrscheinlich) nicht auf jede andere Distribution anwendbar.
