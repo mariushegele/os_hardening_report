@@ -11,7 +11,7 @@
 %   1. Containerization
 %   2. Virtualization
 
-In diesem Teil soll auf mögliche Taktiken zur Härtung eines Linux-Betriebssystems gegen Angriffe unterschiedlicher Art eingegangen werden. Diese Auflistung ist nicht vollständig. Der Fokus liegt auf den Taktiken laufende Prozess mit geringst möglichen Privilegien zu versehen (Least Privilege) oder in einer sog.\ Sandbox abzuschirmen. Es werden weitere Techniken zur Härtung gegen Speicher-Korruption und andere Schwachstellen oder Angriffstaktitken beschrieben.
+In diesem Teil soll auf mögliche Taktiken zur Härtung eines Linux-Betriebssystems gegen Angriffe unterschiedlicher Art eingegangen werden. Diese Auflistung ist nicht vollständig. Der Fokus liegt darauf laufende Prozess mit geringst möglichen Privilegien zu versehen (Least Privilege) oder in einer sog.\ Sandbox abzuschirmen. Es werden jedoch weitere Techniken zur Härtung gegen Speicher-Korruption und andere Schwachstellen oder Angriffstaktitken beschrieben.
 
 \section{Least Privilege Betrieb}
 
@@ -177,6 +177,7 @@ AppArmor ein leeres Profil, konfiguriert das definierte Programm im `Complain'-M
 }
 \end{lstlisting}
 
+Es wurden drei Taktiken zum Least-Privilege-Betrieb beschrieben. Es gibt die Möglichkeit die Oberfläche des Kernels weiter zu reduzieren, in dem ungenutzte oder unübliche Funktionen wie zum Beispiele Treiber für unübliche Protokoll-Familien (IrDA) deaktiviert werden \cite{subgraph-kernel-config}.
 
 
 \section{Sandboxing}
@@ -312,7 +313,8 @@ root         1  bash
 root         8  ps aux
 \end{lstlisting}
 
-Ein Linux OS teilt sich Netzwerk Interfaces, Routing-Tabellen und Routing-Regeln. Mit \textbf{Netzwerk Namespaces} können separate Tabellen und Regeln definiert werden. Die beschränkte Sicht auf existierende Netzwerk-Interfaces reduziert die Wahrscheinlichkeit, dass ein Angreifender potenzielle Vektoren entdeckt.
+Ein Linux OS teilt sich Netzwerk Interfaces, Routing-Tabellen und Routing-Regeln. Mit \textbf{Netzwerk Namespaces} können separate Tabellen und Regeln definiert werden. Die beschränkte Sicht auf existierende Netzwerk-Interfaces reduziert die Wahrscheinlichkeit, dass ein Angreifender potenzielle Vektoren entdeckt. Eine Sandbox, in der sich nur um das Online-Banking gekümmert wird, muss auch nur mit der IP und dem Port der Online-Banking-App eine Verbindung aufbauen. Ein PDF-Viewer
+braucht im Normalfall überhaupt keine Internetverbindung.
 
 \begin{lstlisting}[language=sh,basicstyle=\footnotesize\ttfamily,caption={Isolation der aktiven Internetverbindungen durch einen Netzwerk Namespace}]
 $ netstat -ant
@@ -329,7 +331,7 @@ Active Internet connections (servers and established)
 Proto Recv-Q Send-Q Local Address   Foreign Address  State
 \end{lstlisting}
 
-\textbf{Mount namespaces} isolieren die Sicht auf Mount Punkte. Es zeigte sich, dass Isolation in manchen Erfahrungen sogar zu hoch war, weswegen geteilte Unterbäume (shared subtrees) entwickelt wurden. Über diese können Mount Events über Namespaces hinweg in sogenannte slave mount Punkte propagiert werden. Mount Namespaces sind an Owner User Namespaces gebunden. Unprivilegierte Mount Namespaces sind Namespaces, bei denen sich der Owner NS vom Owner NS seines Parent Mount Namespaces
+\textbf{Mount namespaces} isolieren die Sicht auf Mount Punkte. Eine Anwendung muss nur die Devices sehen, die sich auch benötigt. Es zeigte sich, dass Isolation in manchen Erfahrungen sogar zu hoch war, weswegen geteilte Unterbäume (shared subtrees) entwickelt wurden. Über diese können Mount Events über Namespaces hinweg in sogenannte slave mount Punkte propagiert werden. Mount Namespaces sind an Owner User Namespaces gebunden. Unprivilegierte Mount Namespaces sind Namespaces, bei denen sich der Owner NS vom Owner NS seines Parent Mount Namespaces
 unterscheidet. In diesen Mount NS sind alle Mount Punkte Slave Mounts \cite{man-mount-ns}. Dieser Mechanismus eignet sich gut zur Reduzierung der Container-Privilegien. In einem Container sollten in Normalfall keine weiteren Mount Namespaces notwendig sein.
 
 \textbf{Control groups} (cgroups) ermöglichen es, die nutzbaren Ressourcen (CPU, Speicher etc.) für einzelne Prozessgruppen zu limitieren \cite{man-cgroups}. Dies ist eine wichtige Maßnahme, um Denial of Service Angriffe zu verhindern \cite{lxc-sec}. Ohne diese Limits könnten über eine Vielzahl an Requests an einen Web Server die Ressourcen des Hosts aufgebraucht werden, was zum Absturz potenziell sehr vieler Services führen würde.
@@ -465,10 +467,9 @@ des Erfolgs von Brute Force Attacken sinkt damit in diesem Fall beträchtlich. D
 Der GCC Compiler bietet weitere Optionen, um eine Executable resistent gegenüber Memory Corruption Schwachstellen zu kompilieren \cite{deb-hardening}.
 
 Die \texttt{-fstack-protector} Flag aktiviert `Stack-Smashing-Protection'. 
-Diese Sicherung baut auf den \textit{StackGuard} und \textit{ProPolice} Erweiterungen für GCC \cite{stackguard, shacham_2004}.
+Diese Sicherung baut auf den \textit{StackGuard} und \textit{ProPolice/SSP} Erweiterungen für GCC \cite{stackguard, propolice}.
 Durch \textit{StackGuard} wurden Zahlenwerte -- sogenannte `Canaries' -- eingeführt, die als Fallen im Stack vor dem Return-Pointer platziert werden und bei einer unerwarteten Überschreibung einen Buffer-Overflow-Angriff indizieren. Da der Angreifende in Buffer Overflow Attacken nur sequentiell und aufsteigend in den Speicher schreiben kann, ist gesichert, dass er, um die Return Addresse zu überschreiben auch den Canary überschreiben muss. Damit ein Überschreiben der Return Addresse unentdeckt und damit ein Overflow erfolgreich bliebe, müsste der Canary mit demselben Wert überschrieben werden. Um das zu erschweren sollten die Canaries zufällig gewählt werden \cite{stackguard}. 
-\textit{ProPolice} erweitert diesen Ansatz, indem es lokalen Variablen und Funktions-Argumente umordnet \cite{shacham_2004}.
-Die \texttt{-fstack-protector} Option sichert weniger als etwa 2\% der Funktionen mit der beschriebenen Methode. Die \texttt{-fstack-protector-all} Optionen sichert alle und \texttt{-fstack-protector-strong} versucht eine Balance zwischen beiden zu finden \cite{stack-protector-strong}.
+\textit{ProPolice/SSP} erweitert diesen Ansatz, indem es lokalen Variablen und Funktions-Argumente umordnet \cite{propolice}.
 Die Funktion lässt sich nicht nur auf Userspace Code, sondern mittels der \texttt{CONFIG\_CC\_STACKPROTECTOR} Option auch auf den Kernel beziehen \cite{ubuntu-security-features}.
 
 \begin{lstlisting}[language=bash]
@@ -476,6 +477,12 @@ $ ./stack-smash
 *** stack smashing detected ***: <unknown> terminated
 Aborted (core dumped)
 \end{lstlisting}
+
+Ein Problem bei vielen Control-Flow-Integrity-Prüfungsmechanismen ist die Performanz. Das Platzieren und Prüfen von Canaries kann die Laufzeit großer Programme negative beeinflussen. 
+Deswegen sichert die \texttt{-fstack-protector} Option weniger als etwa 2\% der Funktionen mit der beschriebenen Methode. Die \texttt{-fstack-protector-all} Optionen sichert alle und \texttt{-fstack-protector-strong} versucht eine Balance zwischen beiden zu finden \cite{stack-protector-strong}.
+
+Reuse Attack Protector (RAP) von grsecurity versucht dieses Problem anzugehen, indem es Änderungen früh genug in der Compile-Zeit anwendet, damit sie vom Compiler immer noch optimiert werden können. Es wägt des Weiteren die Möglichkeit ab, Checks auszulassen. Dies macht es schneller als die beschriebene Stack Smashing Protection \cite{grsec-rap}. Es versucht ROP-Angriffe zu vermeiden, in dem es die über Hashes von Typeninformation Funktionen limitiert, die von einem gegebenen Ort aus aufgerufen werden können und zu denen zurückgekehrt werden kann. Es erkennt ein Überschreiben
+der Rücksprungaddress über eine vorherige Verschlüsselung und eine abschließende Prüfung \cite{grsec-rap-faq}.
 
 Eine weitere Absicherung gegen Pointer Corrupton kann es sein, Pointer im Speicher zu verschlüsseln und erst beim Laden in ein Register zu entschlüsseln \cite{pointguard}. So kann ein Überrschrieben den Pointer zwar zerstören, aber es kann ohne Kenntniss des Schlüssels kein sinnvoller Wert geschrieben werden. Dies ist nicht in GCC integriert, aber auf Pointer, die in \texttt{glibc} gespeichert sind, angewendet worden \cite{ubuntu-security-features}.
 
@@ -496,9 +503,9 @@ Es gibt noch weitere bekannte Memory Corruption Schwachstellen und Mitigationste
 
 \section{Gehärtete Konfiguration}
 
-Es gibt mehrere weitere Möglichkeiten ein Linux Betriebssystem auf Sicherheit zu konfigurieren.
+Die beschriebenen Methoden des Least-Privilege-Betriebes und des Sanboxing beziehen verwenden zusätzliche Software oder ein Betriebskonzept, durch die der Kernel gegen Schwachstellen in Userspace-Anwendungen gehärtet werden kann. Doch auch der Kernel und das Betriebssystem selbst können in ihrer Konfiguration stärker auf Sicherheit ausgerichtet werden.
 
-\subsubsection{Sudo}
+\subsection{Sudo}
 
 \texttt{Sudo} wird benutzt, um Befehle als anderer Nutzer auszuführen und damit potenziell Privilegien zu erhöhen. Dafür wird der User nach dem entsprechenden Passwort gefragt. Das \texttt{/etc/sudoers} File beschreibt dafür welche Nutzer, welche Kommandos von welchen Terminals ausführen dürfen und ob sie dafür nach einem Passwort gefragt werden müssen. Es kann deswegen nur mit erhöhten Privilegien geändert werden. \cite{man-sudo}
 
@@ -512,7 +519,7 @@ Defaults        tty_tickets
 \end{lstlisting}
 
 
-\subsubsection{Loadable Kernel Modules}
+\subsection{Loadable Kernel Modules}
 
 Sogennante Loadbale Kernel Modules (LKM) erweitern den Kernel um Hardware Support (Treiber), um Dateisysteme oder um System Calls. Sie modifizieren also die TCB und sind damit mit äußerster Vorsicht zu beachten. Aus diesem Grund erfordert das Laden neuer Module \texttt{root} Privilegien. Sie werden also nicht zur Privilege Escalation benutzt, helfen jedoch dabei Angriffe zu verstecken oder zu persistieren. Diese Art von Angriff wird auch `Rootkit' genannt. Sie sind schwer zu erkennen
 und schwer zu entfernen. Beides wird durch die totale Kontrolle des Rootkits erschwert. Sie verstecken sich selbst, andere Dateien, Prozesse, Netzwerkaktivität und eröffnen authentifizierte Backdoors. \cite{attack-rootkit, attack-lkm}
@@ -530,7 +537,7 @@ insmod: ERROR: could not insert module /lib/modules/5.3.0-51-generic/kernel/cryp
 
 Natürlich muss dies davon begleitet werden, dass auch der \texttt{sysctl} System Call z.B. über Seccomp gefiltert wird. Ein Problem ist hierbei, dass nach einer erfolgreichen Privilege Escalation auch diese Filter umgangen werden können. Eine weitere Maßnahme könnte es sein, \texttt{/proc} read-only zu mounten.
 
-\subsubsection{Bash History}
+\subsection{Bash History}
 
 Die Bash Shell zeichnet die Historie der eingegebenen Kommandos auf. Über das \texttt{history} Kommando können die letzten $n$ Kommandos ausgegeben werden. Zum Ende einer Shell Session werden die letzten $n$ Kommandos in die \texttt{\~/.bash\_history}-Datei geschrieben. Über die \texttt{HISTCONTROL}-Variable wird gesteuert welche Kommandos aufgezeichnet werden:
 
@@ -574,30 +581,55 @@ Ist \texttt{auditd} entsprechend konfiguriert, so lassen sich damit alle möglic
 So kann die Erkennung und die Zurückverfolgung von Angriffen ermöglicht werden und damit zeitig mit den richtig Gegenmaßnahmen vorgegangen werden.
 
 
-\subsubsection{Partitionierung des Dateisystems}
+\subsection{Partitionierung des Dateisystems}
 
 Eine Partitionierung des physischen Speichers ermöglicht mehrere Sicherungsmaßnahmen.
 Einzelne Dateisysteme in separaten Partitionen zu haben sichert die Verfügbarkeit, in dem es Resource Exhaustion (DoS) verhindert. So können Verzeichnisse, die für jeden schreibbar sind\footnote{world-writable} (z.B. \texttt{/tmp}), nicht den Speicher des gesamten Systems verbrauchen, sondern sind durch die Größe ihrer Partition beschränkt.
 Des Weiteren ermöglicht es die Sicherung der Vertraulichkeit durch Verschlüsselung einzelner Dateisysteme (wie z.B. Nutzerdateien in \texttt{/home}).
 Außerdem lassen sich dadurch Dateisysteme fein-granularer mit unterschiedlichen \texttt{mount}-Optionen konfigurieren. Auch wenn \texttt{/dev} Block Devices enthält, sollte dies in \texttt{/tmp} nicht der Fall sein. Das \texttt{/tmp}-Verzeichnis kann also mit der \texttt{nodev}-Flag gemountet werden. Die \texttt{noexec}-Flag verhindert das Installieren von ausführbaren Programmen und das Erstellen von Hardlinks, die in Kombination mit Setuid-Programmen ausgenützt werden können. Mit
-der \texttt{nosuid}-Flag werden Setuid-Programme\footnote{aber auch Linux Capabilities} auf diesem Dateisystem ineffektiv. Einzelne Dateisysteme erfordern sogar überhaupt nicht die Möglichkeit von Nutzern modifiziert zu werden (read-only). \cite{cis}
+der \texttt{nosuid}-Flag werden Setuid-Programme\footnote{aber auch Linux Capabilities} auf diesem Dateisystem ineffektiv. Einzelne Dateisysteme erfordern sogar überhaupt nicht die Möglichkeit von Nutzern modifiziert zu werden (read-only). \cite{cis, subgraph-oz}
 
 \begin{table}[H]
 \centering
 \resizebox{\textwidth}{!}{%
 \begin{tabular}{l|ccccc}
-Verzeichnis                                 & encryption        & \texttt{noexec}  & \texttt{nodev}    & \texttt{nosuid}   & read-only \\ \hline
-\texttt{/tmp}, \texttt{/var/tmp}            & \nocheckb         & \checkb              & \checkb               & \checkb               & \nocheckb        \\
-\texttt{/var/log}, \texttt{/var/log/audit}   & \checkb           & \nocheckb               & \nocheckb                & \nocheckb                & \nocheckb        \\
-\texttt{/usr}                               & \nocheckb         & \nocheckb               & \nocheckb                & \nocheckb                & \checkb       \\
-\texttt{/home}                              & \checkb           & \nocheckb               & \checkb               & \nocheckb                & \nocheckb        \\
-\texttt{/dev}                               & \nocheckb         & \checkb              & \nocheckb                & \checkb               & \nocheckb        \\
-\texttt{/dev/shm}                           & \nocheckb         & \checkb              & \checkb               & \checkb               & \nocheckb 
+Verzeichnis                         & encryption        & \texttt{noexec}   & \texttt{nodev}    & \texttt{nosuid}   & read-only     \\ \hline
+\texttt{/tmp, /var/tmp}             & \nocheckb         & \checkb           & \checkb           & \checkb           & \nocheckb     \\
+\texttt{/var/log, /var/log/audit}   & \checkb           & \nocheckb         & \nocheckb         & \nocheckb         & \nocheckb     \\
+\texttt{/usr, /bin, /lib, /etc}     & \nocheckb         & \nocheckb         & \nocheckb         & \nocheckb         & \checkb       \\
+\texttt{/home}                      & \checkb           & \nocheckb         & \checkb           & \nocheckb         & \nocheckb     \\
+\texttt{/dev}                       & \nocheckb         & \checkb           & \nocheckb         & \checkb           & \nocheckb     \\
+\texttt{/dev/shm}                   & \nocheckb         & \checkb           & \checkb           & \checkb           & \nocheckb     \\
+\texttt{/sys}                       & \nocheckb         & \checkb           & \nocheckb         & \checkb           & \checkb       \\
+\texttt{/proc}                      & \nocheckb         & \checkb           & \nocheckb         & \checkb           & \nocheckb
 \end{tabular}%
 }
 \end{table}
 
 
+\subsection{SSH}
 
+Ein üblicher Weg, mit einer entfernten Maschine zu interagieren ist ein SSH-Tunnel. Dafür muss ein SSH-Server auf der Maschine installiert sein. Das SSH Protokoll beschreibt, wie ein sicherer Kanal über symmetrische Verschlüsselung zwischen Client und Server aufgebaut wird. Ein Client muss sich dazu mit einem Password oder einem privaten Schlüssel authentifizieren. Dieser Mechanismus lässt sich über verschiedene Konfigurationen härten.
 
+Zuerst sollte sichergestellt werden, dass die SSH-Konfigurationsdatei auf dem Server, sowie die privaten und öffentlichen Schlüsseln ausreichend Zugriffsanforderungen haben. Nur \texttt{root} sollte dazu in der Lage sein, diese zu ändern und zu lesen (mit Ausnahme des öffentlichen Schlüssels) \cite{cis}. 
+
+Die \texttt{UsePrivilegeSeparation}-Option stellt sicher, dasss SSH für jeden Authentifizierungsprozess einen unprivilegierten Child-Prozess benutzt und erst bei erfolgreicher Authentifizierung einen neuen Prozess mit den entsprechenden Privilegien des Nutzers erstellt.
+Es sollte nicht möglich sein, sich als \texttt{root} anzumelden (\texttt{PermitRootLogin}), da so nachvollzogen werden kann, welcher Nutzer seine Privilegien eskaliert hat. Dies ermöglicht die Auditierung von Schwachstellen im System. Dies kann neben SSH auch über \texttt{passwd \-\-lock root} eingeschränkt werden.
+
+Um die Passwort-Authentifizierung zu härten sollte die maximale Anzahl an Versuchen (\texttt{MaxAuthTries}), die maximale Zeit (\texttt{LoginGraceTime}), sowie die maximale Zahl der Sessions pro Nutzer (\texttt{MaxSessions}) restriktiert werden. Es sollten keine leeren Passwörter erlaubt sein.
+Die Authentifizierung sollte ohne Ausnahmen stattfinden. Über die \texttt{.rhosts}-Datei lassen sich Ausnahmen definieren. Diese sollten mit \texttt{IgnoreRhosts} ignoriert werden.
+
+Die Verschlüsselung sollte starke Kryptographie verwenden. Es gibt schwache Verschlüsselungsalgorithmen (DES, RC4), schwache Hashing-Funktionen (MD5) und schwache Key-Exchange-Algorithmen (SHA-1). Es sollte geprüft werden, dass solche nicht verwendet werden. Ansonsten besteht die Gefahr, dass der SSH-Tunnel entschlüsselt und damit sensitive Informationen wie Credentials verloren gehen.
+
+Eine weiterer Angriffsvektor im Bezug auf SSH ist das SSH Hijacking \cite{mitre-ssh-hijack}. Das `SSH Agent Forwarding' kann Authentifizierungsaufwand veringern, indem ein Server notwendige Credentials an einen zweiten Server weiterreicht. Dies kann durch Angreifer für Lateral Movement ausgenutzt werden, indem die geladenen privaten Schlüssel des SSH-Agenten des ersten Servers zur Authentifizierung auf dritten Servern verwendet werden. Darüber können potenziell Privilegien
+eskaliert werden. Diese Funktion kann über \texttt{ForwardAgent no} deaktiviert werden.
+
+\subsection{Lokale Prozessplanung}
+
+Programme wie \texttt{cron} werden benutzt, um sich wiederholende Aufgaben automatisch in einem bestimmten zeitlichen Rhythmus auszuführen. Dies kann von Angreifern missbraucht werden, um ihre Kontrolle auf einem System zu persistieren, zum Beispiel indem bösartige Skripte in täglichem Takt ausgeführt werden \cite{mitre-local-job}.
+
+Die Dateien \texttt{/etc/crontab, /etc/cron.d} sowie \texttt{/etc/cron.\{daily,weekly,monthly\}} bestimmen welche Aufgaben wann ausgeführt werden. Es ist möglich, dass Jobs existieren, die bestimmte Aufgaben wiederholt `im Namen' eines privilegierten Nutzers ausführen. Dies stellt einen potenziellen Angriffsvektor zur Privilege Escalation dar, wenn eine bekannte Schwachstelle im ausgeführten Programm existiert oder zum Beispiel vom Programm benutzte Dateien modifiziert
+werden können.
+
+Aus diesen Gründen sollten die genannten Dateien nur für privilegierte Nutzer les- und schreibbar sein. Über \texttt{/etc/cron.allow} lässt sich weiterhin festlegen, welche Nutzer \texttt{cron} Jobs ausführen dürfen. Auch diese Dateien sollten mit angemessen DAC-Zugriffsoptionen versehen werden.
 
